@@ -1,16 +1,22 @@
-# Restaurantes — versão 3 (mobile)
+# Restaurantes — v4 (mobile)
 
-## Instalação
-1. Execute `atualizacao-v3.sql` no SQL Editor do projeto Supabase **antes** de subir os arquivos do site.
-2. No GitHub, substitua `index.html`, `app.js`, `styles.css` e demais arquivos de interface pela versão deste pacote. A `config.js` usa a mesma URL e chave **pública** do Supabase já configuradas.
-3. Após o deploy do GitHub Pages, abra o site em uma janela privada para evitar cache antigo.
+## Atualizar GitHub Pages
+Substitua os arquivos da raiz do repositório pelos deste ZIP (especialmente `index.html`, `styles.css`, `app.js`). A configuração atual de Supabase foi preservada. Nenhuma migração SQL adicional é necessária se você já executou `atualizacao-v3.sql`.
 
-## Mudanças
-- O mapa utiliza tiles do OpenStreetMap sem chave comercial; a estética escura é aplicada por CSS. Respeite a atribuição, o uso justo e o cache do serviço.
-- A geolocalização usa `navigator.geolocation` e requer permissão do usuário e HTTPS (GitHub Pages fornece HTTPS).
-- As abas Avaliações e Perfil ocupam a tela no celular, e o botão Avaliar lugar fica limitado à aba Mapa.
-- O criador pode editar nome/endereço do restaurante e excluí-lo, desde que não haja avaliações de outras pessoas. Exclusões pedem confirmação.
-- Não exclui nem migra contas existentes ou dados do Supabase.
+## Correções desta versão
+- Removida a caixa de busca do topo. A busca de endereço existe somente durante o cadastro ou edição de restaurantes.
+- `font-size: 16px` nos campos em dispositivos touch para evitar zoom automático do Safari sem impedir pinch-to-zoom.
+- Mapa base OpenStreetMap padrão sem inversões de cores/filtragem que afetavam os tiles.
+- GPS solicita localização no carregamento e no botão ⌖; usa alta precisão, exibe estimativa de erro e círculo de precisão. Necessita HTTPS e permissão do navegador, além da opção Localização Precisa ligada no iPhone.
+- Marcadores dos restaurantes são gerados com as coordenadas lat/lng salvas no Supabase. Ao cadastrar, a pessoa seleciona o resultado de endereço, ou o ponto no mapa.
+- A tela do mapa recalcula dimensões após alternância de aba/orientação.
 
-## Atenção
-O OpenStreetMap/Nominatim não é uma solução comercial de geocodificação em escala. Para uso intenso/muitos usuários, é recomendável contratar provedor de mapas e busca com SLA. Verifique os termos do serviço.
+## Restrições
+O navegador não consegue forçar GPS exato: a precisão depende do aparelho, rede, permissões e ambiente. Google Maps Javascript exige API key e faturamento, portanto esta versão usa mapa padrão do OpenStreetMap sem chave, mantendo a interface escura.
+Mapas OSM e geocodificação pública (Nominatim) têm limites de uso e disponibilidade; destinados a testes e uso pessoal leve. Para implantação maior, use provedor com SLA ou infraestrutura própria.
+
+## Teste no iPhone
+1. Verifique GitHub Pages Actions e abra o site atualizado em aba privativa.
+2. Vá à aba Mapa, autorize Localização Precisa e toque em ⌖.
+3. Toque em Avaliar lugar, digite nome e endereço completo e clique em Buscar endereço no mapa. Escolha resultado, dê nota e salve.
+4. Confirme o marcador no mapa e o cartão na lista. Teste excluir avaliação e editar restaurante.

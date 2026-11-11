@@ -36,22 +36,54 @@ $('#modalClose').addEventListener('click',closeModal);
 $('#modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 
-let userLocation=null,userMarker=null;
+let userLocation=null,userMarker=null,accuracyCircle=null,hasInteractedWithMap=false;
+let positionRequest=0;
+function locationHint(message, temporary=false){
+ const el=$('#locationHint');if(!el)return;
+ el.textContent=message;el.classList.remove('hidden');
+ if(temporary){clearTimeout(locationHint.timeout);locationHint.timeout=setTimeout(()=>el.classList.add('hidden'),6000)}
+}
 function locateUser(silent=false){
- if(!navigator.geolocation){if(!silent)toast('Seu navegador não oferece localização.');return}
+ if(!navigator.geolocation){locationHint('Este navegador não oferece geolocalização.');return}
+ const request=++positionRequest;
+ locationHint('Obtendo localização do aparelho…');
+ $('#locateButton').disabled=true;
  navigator.geolocation.getCurrentPosition(pos=>{
-  userLocation=[pos.coords.latitude,pos.coords.longitude];
+  if(request!==positionRequest)return;
+  $('#locateButton').disabled=false;
+  const lat=pos.coords.latitude,lng=pos.coords.longitude;
+  const accuracy=Math.round(pos.coords.accuracy);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
+  userLocation=[lat,lng];
   if(userMarker)map.removeLayer(userMarker);
-  userMarker=L.marker(userLocation,{icon:L.divIcon({html:'<div class="gps-dot"></div>',iconSize:[20,20],iconAnchor:[10,10],className:''})}).addTo(map).bindPopup('Sua localização');
-  map.setView(userLocation,15);if(!silent)toast('Localização atualizada.');
- },err=>{if(!silent)toast(err.code===1?'Permita a localização nas configurações do navegador.':'Não foi possível obter sua localização.');},{enableHighAccuracy:true,timeout:12000,maximumAge:120000})
+  if(accuracyCircle)map.removeLayer(accuracyCircle);
+  accuracyCircle=L.circle(userLocation,{radius:Math.max(accuracy,10),color:'#4d9df7',weight:1,fillColor:'#4d9df7',fillOpacity:.12,interactive:false}).addTo(map);
+  userMarker=L.marker(userLocation,{icon:L.divIcon({html:'<div class="gps-dot"></div>',iconSize:[20,20],iconAnchor:[10,10],className:''})}).addTo(map).bindPopup(`Você está aqui · precisão aproximada: ${accuracy} m`);
+  if(!silent||!hasInteractedWithMap){map.invalidateSize();map.setView(userLocation,Math.max(14,Math.min(17,accuracy<=50?17:accuracy<=200?16:14)),{animate:false})}
+  locationHint(accuracy<=100?`Localização encontrada · precisão de ~${accuracy} m`:`Localização aproximada (~${accuracy} m). Ative Localização Precisa no celular.`,true);
+  if(!silent)toast(`Localização atualizada (precisão de ~${accuracy} m).`);
+ },err=>{
+  if(request!==positionRequest)return;
+  $('#locateButton').disabled=false;
+  const message=err.code===1?'Permita o acesso à localização e ative Localização Precisa no navegador.':err.code===3?'GPS demorou para responder. Toque em ⌖ para tentar novamente.':'Não foi possível obter sua localização. Toque em ⌖ para tentar novamente.';
+  locationHint(message);
+  if(!silent)toast(message);
+  if(!userLocation&&restaurants.length&&!hasInteractedWithMap)fitAll();
+ },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
 }
 function initializeMap(){
- map=L.map('map',{zoomControl:false}).setView([-15.78,-47.93],4);
- L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
+ map=L.map('map',{zoomControl:false,preferCanvas:true,zoomSnap:.5}).setView([-23.5505,-46.6333],12);
+ const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,minZoom:2,updateWhenIdle:true,keepBuffer:2,
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'
+ }).addTo(map);
+ tiles.on('tileerror',()=>locationHint('Algumas partes do mapa não carregaram. Verifique a conexão e recarregue a página.'));
  markersLayer=L.layerGroup().addTo(map);
+ map.on('dragstart zoomstart',()=>{hasInteractedWithMap=true});
  map.on('click',e=>openNewPlace({lat:e.latlng.lat,lng:e.latlng.lng}));
- setTimeout(()=>locateUser(true),500);
+ setTimeout(()=>{map.invalidateSize();locateUser(true)},350);
+ window.addEventListener('orientationchange',()=>setTimeout(()=>map.invalidateSize(),350));
+ if(window.visualViewport){window.visualViewport.addEventListener('resize',()=>{if(activePage==='explore')map.invalidateSize()})}
 }
 function currentUserId(){return live?user?.id:'demo-me'}
 function getRestaurant(id){return restaurants.find(r=>String(r.id)===String(id))}
@@ -64,14 +96,13 @@ function sortByDate(arr){return [...arr].sort((a,b)=>new Date(b.created_at)-new 
 function render(){renderStats();renderRestaurants();renderFeed();renderProfile();renderMap();}
 function renderStats(){const mine=mineReviews(),avg=mine.length?(mine.reduce((a,b)=>a+Number(b.rating),0)/mine.length).toFixed(1).replace('.',','):'—';$('#statVisits').textContent=mine.length;$('#statAverage').textContent=avg;$('#statFriends').textContent=friendCount();$('#profileReviews').textContent=mine.length;$('#profileAverage').textContent=avg;$('#profileFriends').textContent=friendCount();}
 function renderRestaurants(){
- const query=$('#searchInput').value.trim().toLowerCase();
- let list=restaurants.filter(r=>(!live || r.created_by===user?.id || reviews.some(v=>v.restaurant_id===r.id))&&(!query||`${r.name} ${r.address}`.toLowerCase().includes(query)));
+ let list=restaurants.filter(r=>(!live || r.created_by===user?.id || reviews.some(v=>v.restaurant_id===r.id)));
  list=sortLatest?sortByDate(list):[...list].sort((a,b)=>a.name.localeCompare(b.name));
  $('#placesCount').textContent=list.length;
  $('#restaurantList').innerHTML=list.length?list.map(r=>{
   const mine=reviewByMe(r.id), all=reviews.filter(v=>v.restaurant_id===r.id), avg=all.length?(all.reduce((a,b)=>a+Number(b.rating),0)/all.length).toFixed(1).replace('.',','):'—';
   return `<button class="place-card" data-open-place="${escapeHtml(r.id)}"><div class="place-visual ${classFor(r.name)}">${emojiFor(r.name)}</div><div class="place-content"><div class="place-name">${escapeHtml(r.name)}</div><div class="place-address">${escapeHtml(r.address||'Endereço não informado')}</div><div class="place-foot"><span class="place-rating">★ ${mine?Number(mine.rating).toFixed(1).replace('.',','):avg} <span>${mine?'sua nota':all.length?'na rede':'sem nota'}</span></span><span class="place-date">${mine?dateLabel(mine.created_at):''}</span></div></div></button>`;
- }).join(''):`<div class="empty-state"><strong>Nenhum restaurante ainda</strong><p>${query?'Tente outra busca.':'Adicione seu primeiro restaurante.'}</p></div>`;
+ }).join(''):`<div class="empty-state"><strong>Nenhum restaurante ainda</strong><p>Adicione seu primeiro restaurante.</p></div>`;
 }
 function feedMarkup(items){
  if(!items.length)return '<div class="empty-state"><strong>Sem avaliações ainda</strong></div>';
@@ -89,7 +120,7 @@ function renderProfile(){
 }
 function renderMap(){if(!map)return;markersLayer.clearLayers();restaurants.filter(r=>!live || r.created_by===user?.id || reviews.some(v=>v.restaurant_id===r.id)).forEach(r=>{if(!Number.isFinite(Number(r.lat))||!Number.isFinite(Number(r.lng)))return;const mine=reviewByMe(r.id),isFriend=!mine&&reviews.some(v=>v.restaurant_id===r.id);const icon=L.divIcon({html:`<div class="pin-marker ${isFriend?'friend-pin':''}"><span>${emojiFor(r.name)}</span></div>`,iconSize:[40,44],iconAnchor:[20,39],popupAnchor:[0,-35]});L.marker([r.lat,r.lng],{icon}).addTo(markersLayer).bindPopup(`<div class="map-popup"><strong>${escapeHtml(r.name)}</strong><small>${escapeHtml(r.address||'')}</small><button data-open-place="${escapeHtml(r.id)}">${mine?'Ver minha avaliação':'Avaliar este lugar'}</button></div>`)});}
 function fitAll(){const locs=restaurants.filter(r=>Number.isFinite(Number(r.lat))&&Number.isFinite(Number(r.lng))).map(r=>[r.lat,r.lng]);if(locs.length)map.fitBounds(L.latLngBounds(locs).pad(.22),{maxZoom:14});else if(userLocation)map.setView(userLocation,15);else toast('Nenhum restaurante cadastrado ainda.')}
-function switchPage(page){activePage=page;document.body.dataset.page=page;$('#searchResults').classList.add('hidden');$('#sectionTitle').textContent=({explore:'Restaurantes',feed:'Avaliações',profile:'Perfil'})[page];$('#headerSubtitle').textContent=({explore:'Seus lugares',feed:'Notas de vocês',profile:'Conta e amigos'})[page];document.querySelectorAll('.panel-page').forEach(el=>el.classList.toggle('active',el.id==='page-'+page));document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));if(page==='explore')setTimeout(()=>map.invalidateSize(),220)}
+function switchPage(page){activePage=page;document.body.dataset.page=page;$('#sectionTitle').textContent=({explore:'Restaurantes',feed:'Avaliações',profile:'Perfil'})[page];$('#headerSubtitle').textContent=({explore:'Seus lugares',feed:'Notas de vocês',profile:'Conta e amigos'})[page];document.querySelectorAll('.panel-page').forEach(el=>el.classList.toggle('active',el.id==='page-'+page));document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));if(page==='explore')requestAnimationFrame(()=>setTimeout(()=>map.invalidateSize(),80))}
 function openPlace(id){const r=getRestaurant(id);if(!r)return;const mine=reviewByMe(id);const others=reviews.filter(x=>x.restaurant_id===id&&x.user_id!==currentUserId());modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> RESTAURANTE NO MAPA</div><h2>${emojiFor(r.name)} ${escapeHtml(r.name)}</h2><p>${escapeHtml(r.address||'Localização cadastrada')}</p><div class="modal-location">📍 <strong>Local no mapa</strong> · ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}</div>${mine?`<div class="feed-card" style="margin-top:15px"><strong>Sua avaliação · ★ ${Number(mine.rating).toFixed(1).replace('.',',')}</strong><p style="margin:9px 0 0">${escapeHtml(mine.note||'Sem comentário')}</p></div>`:''}${others.length?`<div style="margin-top:16px"><div class="mini-eyebrow" style="margin-bottom:10px">AMIGOS QUE CONHECEM</div>${feedMarkup(others)}</div>`:''}${mine?`<div class="feed-actions"><button class="text-action danger" data-delete-review="${escapeHtml(mine.id)}">Excluir avaliação</button></div>`:''}${(!live||r.created_by===user?.id)?`<div class="place-management"><button class="text-action" data-edit-place="${escapeHtml(r.id)}">Editar restaurante</button><button class="text-action danger" data-delete-place="${escapeHtml(r.id)}">Excluir restaurante</button></div>`:''}<div class="form-actions"><button class="btn-secondary" id="showOnMap">Ver no mapa</button><button class="btn-primary" id="reviewSelected">${mine?'Editar minha nota':'Avaliar este lugar'}</button></div>`);$('#reviewSelected').addEventListener('click',()=>openReview(r));$('#showOnMap').addEventListener('click',()=>{closeModal();switchPage('explore');map.setView([r.lat,r.lng],16)})}
 
 function editPlace(id){
@@ -135,7 +166,7 @@ function openNewPlace(point=null){
 function openReview(r){if(live&&!user){openAuth();return}const old=r.id?reviewByMe(r.id):null;let rating=old?Number(old.rating):0;modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> AVALIAÇÃO</div><h2>Como foi no ${escapeHtml(r.name)}?</h2><p></p><form id="reviewForm"><div class="field"><label>SUA NOTA</label><div class="rating-picker" id="ratingPicker">${[1,2,3,4,5].map(v=>`<button type="button" class="rating-star ${v<=Math.ceil(rating)?'selected':''}" data-rating="${v}" aria-label="${v} estrelas">★</button>`).join('')}<span class="rating-value" id="ratingValue">${rating?rating.toFixed(1).replace('.',',')+' / 5,0':'Escolha uma nota'}</span></div><small class="helper-text">Toque em uma estrela para a nota inteira; toque novamente para meia estrela.</small></div><div class="field"><label for="reviewNote">SUA REVIEW (OPCIONAL)</label><textarea id="reviewNote" class="form-textarea" maxlength="500" placeholder="O que você pediu? O que valeu a pena? Voltaria?">${escapeHtml(old?.note||'')}</textarea></div><div class="form-actions"><button type="button" class="btn-secondary" id="cancelReview">Cancelar</button><button class="btn-primary" type="submit">Salvar avaliação</button></div></form>`);
  $('#cancelReview').addEventListener('click',closeModal);
  $('#ratingPicker').addEventListener('click',e=>{const b=e.target.closest('[data-rating]');if(!b)return;const v=Number(b.dataset.rating);rating=(rating===v)?v-.5:v;document.querySelectorAll('.rating-star').forEach((star,i)=>star.classList.toggle('selected',i<Math.ceil(rating)));$('#ratingValue').textContent=rating.toFixed(1).replace('.',',')+' / 5,0'});
- $('#reviewForm').addEventListener('submit',async e=>{e.preventDefault();if(!rating){toast('Escolha uma nota de 0,5 a 5 estrelas.');return}const button=e.target.querySelector('[type=submit]');button.disabled=true;try{await saveReview(r,rating,$('#reviewNote').value.trim());closeModal();toast('Avaliação salva.');render()}catch(error){console.error(error);toast('Não foi possível salvar: '+(error.message||error))}finally{button.disabled=false}})
+ $('#reviewForm').addEventListener('submit',async e=>{e.preventDefault();if(!rating){toast('Escolha uma nota de 0,5 a 5 estrelas.');return}const button=e.target.querySelector('[type=submit]');button.disabled=true;try{await saveReview(r,rating,$('#reviewNote').value.trim());closeModal();toast('Avaliação salva e restaurante marcado no mapa.');render()}catch(error){console.error(error);toast('Não foi possível salvar: '+(error.message||error))}finally{button.disabled=false}})
 }
 async function saveReview(r,rating,note){
  let rid=r.id;
@@ -166,9 +197,6 @@ async function loadLiveData(){
 function openAuth(){if(!live)return;let mode='login';const paint=()=>{modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> ACESSO</div><h2>Entrar ou criar conta</h2><p>Salve suas avaliações e veja as de amigos.</p><div class="auth-toggle"><button id="tabLogin" class="${mode==='login'?'active':''}">Entrar</button><button id="tabSignup" class="${mode==='signup'?'active':''}">Criar conta</button></div><form id="authForm">${mode==='signup'?`<div class="field"><label>NOME EXIBIDO</label><input required class="form-input" id="authName" maxlength="50" placeholder="Seu nome"/></div><div class="field"><label>NOME DE USUÁRIO (SEM @)</label><input required pattern="[a-zA-Z0-9_]{3,30}" class="form-input" id="authUsername" maxlength="30" placeholder="meunome"/></div>`:''}<div class="field"><label>E-MAIL</label><input required type="email" class="form-input" id="authEmail" placeholder="voce@email.com"/></div><div class="field"><label>SENHA</label><input required type="password" minlength="6" class="form-input" id="authPassword" placeholder="Mínimo de 6 caracteres"/></div><div class="form-actions"><button class="btn-primary" type="submit">${mode==='login'?'Entrar':'Criar minha conta'} →</button></div></form><p class="helper-text">${mode==='signup'?'Pode ser necessário confirmar o e-mail antes de entrar.':'Suas informações são protegidas pelo Supabase Auth.'}</p>`);$('#tabLogin').onclick=()=>{mode='login';paint()};$('#tabSignup').onclick=()=>{mode='signup';paint()};$('#authForm').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button[type=submit]');btn.disabled=true;const email=$('#authEmail').value.trim(),password=$('#authPassword').value;try{if(mode==='signup'){const username=$('#authUsername').value.trim().toLowerCase(),displayName=$('#authName').value.trim();const {data,error}=await supabase.auth.signUp({email,password,options:{data:{username,display_name:displayName}}});if(error)throw error;closeModal();toast(data.session?'Conta criada com sucesso!':'Conta criada! Confira seu e-mail para confirmar o cadastro.')}else{const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;closeModal();toast('Login realizado.')}}catch(err){toast(err.message||'Não foi possível entrar.')}finally{btn.disabled=false}}};paint()}
 async function addFriend(){if(!live){toast('Amizades reais precisam do Supabase configurado.');return}if(!user){openAuth();return}const username=$('#friendInput').value.trim().replace(/^@/,'').toLowerCase();if(!username){toast('Digite um nome de usuário.');return}if(username===profile?.username){toast('Você já está no seu próprio mapa!');return}try{const {data:person,error}=await supabase.from('profiles').select('id,username,display_name').eq('username',username).maybeSingle();if(error)throw error;if(!person){toast('Usuário não encontrado.');return}if(friends.some(f=>[f.sender_id,f.recipient_id].includes(person.id))){toast('Vocês já têm uma solicitação ou amizade.');return}const {error:err}=await supabase.from('friendships').insert({sender_id:user.id,recipient_id:person.id});if(err)throw err;$('#friendInput').value='';await loadLiveData();toast('Pedido de amizade enviado!')}catch(err){toast(err.message||'Não foi possível enviar o convite.')}}
 async function acceptFriend(id){try{const {error}=await supabase.from('friendships').update({status:'accepted'}).eq('id',id).eq('recipient_id',user.id);if(error)throw error;await loadLiveData();toast('Agora vocês são amigos!')}catch(err){toast(err.message)}}
-async function searchMapPlaces(){let query=$('#searchInput').value.trim();if(query.length<3){toast('Digite pelo menos 3 caracteres para buscar no mapa.');return}const btn=$('#searchPlaces');btn.disabled=true;btn.textContent='Buscando lugares...';try{const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=7&addressdetails=1&q=${encodeURIComponent(query)}`;const res=await fetch(url,{headers:{'Accept':'application/json'}});if(!res.ok)throw new Error('Serviço de busca indisponível');searchResults=await res.json();$('#searchResults').classList.remove('hidden');$('#searchResults').innerHTML=searchResults.length?searchResults.map((p,i)=>`<button class="search-result" data-result="${i}"><strong>${escapeHtml(p.name||p.display_name.split(',')[0])}</strong><small>${escapeHtml(p.display_name)}</small></button>`).join(''):`<div style="padding:12px;font-size:12px;color:#8e9c8d">Nenhum lugar encontrado. Tente incluir a cidade ou marque diretamente no mapa.</div>`}catch(err){toast('Busca não disponível no momento. Você pode marcar o local no mapa.')}finally{btn.disabled=false;btn.textContent='Buscar'}}
-function selectSearchResult(i){const p=searchResults[i];if(!p)return;const lat=Number(p.lat),lng=Number(p.lon),name=p.name||p.display_name.split(',')[0];$('#searchResults').classList.add('hidden');map.setView([lat,lng],17);switchPage('explore');const existing=restaurants.find(r=>r.name.toLowerCase()===name.toLowerCase()&&Math.abs(r.lat-lat)<.002&&Math.abs(r.lng-lng)<.002);if(existing)openPlace(existing.id);else openReview({id:null,name,address:p.display_name,lat,lng})}
-
 initializeMap();initializeBackend();
 document.addEventListener('click',e=>{
  const delPlace=e.target.closest('[data-delete-place]');if(delPlace){deletePlace(delPlace.dataset.deletePlace);return}
@@ -176,7 +204,6 @@ document.addEventListener('click',e=>{
  const del=e.target.closest('[data-delete-review]');if(del){deleteReview(del.dataset.deleteReview);return}
  const edit=e.target.closest('[data-edit-review]');if(edit){const r=getRestaurant(edit.dataset.editReview);if(r)openReview(r);return}
  const link=e.target.closest('[data-open-place]');if(link){e.preventDefault();openPlace(link.dataset.openPlace);return}
- const result=e.target.closest('[data-result]');if(result){selectSearchResult(Number(result.dataset.result));return}
  const accepted=e.target.closest('[data-accept]');if(accepted){acceptFriend(accepted.dataset.accept);return}
  if(e.target.closest('#loginButton'))openAuth();
  if(e.target.closest('#logoutButton'))supabase.auth.signOut().then(()=>{toast('Você saiu da conta.');switchPage('explore')});
@@ -184,10 +211,6 @@ document.addEventListener('click',e=>{
 });
 document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>switchPage(b.dataset.page)));
 document.querySelectorAll('[data-feed-filter]').forEach(b=>b.addEventListener('click',()=>{feedFilter=b.dataset.feedFilter;document.querySelectorAll('[data-feed-filter]').forEach(x=>x.classList.toggle('active',x===b));renderFeed()}));
-$('#searchInput').addEventListener('input',()=>{$('#clearSearch').classList.toggle('hidden',!$('#searchInput').value);renderRestaurants();$('#searchResults').classList.add('hidden')});
-$('#searchInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchMapPlaces()}});
-$('#clearSearch').onclick=()=>{$('#searchInput').value='';$('#clearSearch').classList.add('hidden');$('#searchResults').classList.add('hidden');renderRestaurants()};
-$('#searchPlaces').onclick=searchMapPlaces;
 $('#sortButton').onclick=()=>{sortLatest=!sortLatest;$('#sortButton').textContent=sortLatest?'Mais recentes ↓':'Nome A–Z ↓';renderRestaurants()};
 $('#addPlaceSide').onclick=()=>openNewPlace();$('#floatingAdd').onclick=()=>openNewPlace();
 $('#addFriendButton').onclick=addFriend;

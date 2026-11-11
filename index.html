@@ -1,14 +1,13 @@
 <!doctype html>
 <html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<meta name="theme-color" content="#101319" /><meta name="description" content="Seus restaurantes e avaliações no mapa." />
+<meta name="referrer" content="strict-origin-when-cross-origin"/><meta name="theme-color" content="#101319" /><meta name="description" content="Seus restaurantes e avaliações no mapa." />
 <title>Meus lugares</title><link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzxJ+9lAzmmpDYMhT0BE7rrzF8sA=" crossorigin=""/>
-<link rel="stylesheet" href="styles.css?v=3" /></head><body>
+<link rel="stylesheet" href="styles.css?v=4" /></head><body>
 <div class="app-shell">
 <main class="map-area" id="mapArea"><div id="map" aria-label="Mapa interativo"></div>
- <div class="map-search"><div class="search-box"><span class="search-symbol">⌕</span><input id="searchInput" type="search" placeholder="Buscar restaurante ou endereço" autocomplete="off" aria-label="Buscar restaurante ou endereço"><button id="clearSearch" class="clear-search hidden" aria-label="Limpar busca">×</button></div><button id="searchPlaces" class="search-go" aria-label="Buscar no mapa">Buscar</button></div>
- <div id="searchResults" class="search-results hidden"></div>
+ <div id="locationHint" class="location-hint" role="status" aria-live="polite">Toque em ⌖ para usar sua localização</div>
  <div class="map-tools"><button class="map-tool" id="locateButton" title="Minha localização" aria-label="Minha localização">⌖</button><button class="map-tool" id="resetMapButton" title="Mostrar restaurantes" aria-label="Mostrar restaurantes">▣</button></div>
  <button id="floatingAdd" class="floating-add" type="button"><span>＋</span> Avaliar lugar</button>
  <div class="map-attribution-label"></div>
@@ -27,4 +26,4 @@
 <div id="modalBackdrop" class="modal-backdrop hidden"><div id="modal" class="modal" role="dialog" aria-modal="true"><button id="modalClose" class="modal-close" aria-label="Fechar">×</button><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script type="module" src="app.js?v=3"></script></body></html>
+<script type="module" src="app.js?v=4"></script></body></html>

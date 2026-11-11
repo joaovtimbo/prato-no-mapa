@@ -71,3 +71,21 @@ html,body,.app-shell,.side-panel,.side-content,.panel-page,.restaurant-list{max-
  .map-area{overflow:hidden}
  .leaflet-control-attribution{max-width:calc(100vw - 24px)!important}
 }
+
+/* v6: mapa vetorial MapLibre, sem filtros sobre tiles */
+#map {touch-action:pan-x pan-y; background:#d6e1e7}
+.maplibregl-map{font:inherit;overflow:hidden}
+.maplibregl-control-container .maplibregl-ctrl-attrib{font-size:9px;background:#ffffffdf;color:#333}
+.maplibregl-popup-content{background:#222b34;color:#edf3f7;border-radius:12px;padding:12px}
+.maplibregl-popup-tip{border-top-color:#222b34}
+.map-popup{min-width:170px;max-width:225px;overflow-wrap:anywhere}
+.map-popup small{display:block;overflow-wrap:anywhere}
+.maplibregl-popup-close-button{color:#edf3f7;font-size:20px}
+/* enderecos e nomes nunca provocam rolagem horizontal */
+html,body,.app-shell,.side-panel,.side-content,.panel-page,.restaurant-list{max-width:100%;overflow-x:hidden}
+.place-card{min-width:0;max-width:100%;overflow:hidden}
+.place-content{flex:1 1 0;min-width:0;max-width:100%;overflow:hidden}
+.place-name,.place-address,.feed-address{white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.place-address{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;line-height:1.45}
+.place-foot{min-width:0;gap:6px;flex-wrap:wrap}
+@media(max-width:760px){.maplibregl-ctrl-bottom-right{bottom:calc(min(31dvh,265px) + 70px + env(safe-area-inset-bottom))}.maplibregl-ctrl-bottom-left{bottom:calc(min(31dvh,265px) + 70px + env(safe-area-inset-bottom))}}

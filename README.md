@@ -1,22 +1,22 @@
-# Restaurantes — versão 5
+# Restaurantes — versão 6 (mapa vetorial)
 
-Atualização do mapa e dos cartões mobile.
+Esta versão substitui o mapa antigo baseado em imagens quadradas (Leaflet + raster tiles) por **MapLibre GL JS + OpenFreeMap** (camadas vetoriais). Não requer chave de API para o mapa.
 
-## Instalação
-Envie **todos os arquivos** desta pasta para a raiz do repositório GitHub Pages, substituindo os arquivos anteriores. Não há migração SQL nesta atualização. As contas e os restaurantes do Supabase são preservados.
+## Publicar
 
-## Mudanças
-- Leaflet com zoom por pinça, duplo toque, arraste e botões `+` e `−`.
-- GPS solicitado ao entrar. O ícone `⌖` força nova solicitação e recentraliza na localização autorizada. Se não houver permissão, o mapa não alega conhecer a posição do aparelho.
-- Tocar no mapa não abre mais cadastro involuntário. O botão **Avaliar lugar** abre o fluxo de endereço e avaliação.
-- Endereços longos quebram linha no cartão, com limite visual de três linhas e sem rolagem horizontal.
-- Mapa padrão OpenStreetMap com atribuição, sem filtros, máscaras ou chave de API.
+1. Faça backup dos arquivos atuais do repositório.
+2. Faça upload dos arquivos desta pasta na **raiz** do repositório GitHub Pages, substituindo os homônimos.
+3. Aguarde o deploy em Actions e recarregue a página em uma aba privada do celular.
 
-## Limites
-O GPS depende das permissões do Safari/iOS, da opção Localização Precisa e da qualidade do sinal. Os blocos do OpenStreetMap são fornecidos por terceiro e podem falhar por rede/bloqueadores; não há garantia de disponibilidade. Para uma experiência com a mesma infraestrutura e cobertura visual do Google Maps, seria necessária integração oficial com Google Maps Platform, que exige chave e configuração de faturamento.
+**Não é necessário modificar o Supabase ou executar SQL.** Perfis, restaurantes, avaliações e amizades permanecem no banco de dados existente.
 
-## Testes no iPhone
-- Permitir localização precisa para Safari, depois tocar em `⌖`.
-- Tocar `−` repetidas vezes e arrastar o mapa; pinçar para aproximar e afastar.
-- Verificar restaurante cadastrado no mapa; se o endereço foi geocodificado incorretamente na versão anterior, editar o endereço e selecionar o resultado certo.
-- Confirmar que um endereço longo aparece em até três linhas, sem arrastar a página horizontalmente.
+## Testar
+
+- Dar permissão de localização precisa ao navegador e tocar em ⌖. Se negada, o site não tenta adivinhar sua posição.
+- Usar dois dedos para zoom, arrastar e tocar nos marcadores dos restaurantes.
+- Cadastrar um restaurante informando endereço completo, pesquisando e selecionando o resultado correto.
+- Conferir se nomes/endereços longos quebram linha, sem rolagem lateral.
+
+O estilo `https://tiles.openfreemap.org/styles/liberty` fornece o mapa vetorial. A exatidão do GPS depende do dispositivo/permissões. A busca de endereços continua usando Nominatim (OpenStreetMap). O mapa precisa de internet e um navegador compatível com WebGL.
+
+Nota: código validado estaticamente, mas não testado em um iPhone físico.

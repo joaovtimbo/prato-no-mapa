@@ -10,7 +10,7 @@ const emojiFor = (name) => /sushi|japon|temaki|ramen/i.test(name)?'🍣':/pizza|
 const classFor = (name) => /sushi|japon|temaki|ramen/i.test(name)?'sushi':/pizza|pizzaria|italian|massa/i.test(name)?'pizza':/café|cafe|coffee|padaria/i.test(name)?'cafe':/burger|hamb|lanche/i.test(name)?'burger':'other';
 const prettyStars = v => '★'.repeat(Math.round(Number(v)))+'☆'.repeat(5-Math.round(Number(v)));
 let supabase=null, live=false, user=null, profile=null;
-let restaurants=[], reviews=[], friends=[], profiles={}, pendingPoint=null, searchResults=[], activePage='explore', feedFilter='all', sortLatest=true, map, markersLayer;
+let restaurants=[], reviews=[], friends=[], profiles={}, pendingPoint=null, searchResults=[], activePage='explore', feedFilter='all', sortLatest=true, map, markersLayer=[];
 const demoSeed = {
   name:'Visitante',
   restaurants:[
@@ -44,6 +44,11 @@ function locationHint(message, temporary=false){
  el.textContent=message;el.classList.remove('hidden');
  if(temporary){clearTimeout(locationHint.timeout);locationHint.timeout=setTimeout(()=>el.classList.add('hidden'),6000)}
 }
+function mapResize(){if(map)map.resize()}
+function goToPoint(lat,lng,zoom=16){
+ if(!map)return;
+ map.easeTo({center:[Number(lng),Number(lat)],zoom,duration:500});
+}
 function locateUser(silent=false){
  if(!navigator.geolocation){locationHint('Este navegador não oferece geolocalização.');return}
  const request=++positionRequest;
@@ -56,47 +61,42 @@ function locateUser(silent=false){
   const accuracy=Math.round(pos.coords.accuracy);
   if(!Number.isFinite(lat)||!Number.isFinite(lng))return;
   userLocation=[lat,lng];gpsHasResolved=true;
-  if(userMarker)map.removeLayer(userMarker);
-  if(accuracyCircle)map.removeLayer(accuracyCircle);
-  accuracyCircle=L.circle(userLocation,{radius:Math.max(accuracy,10),color:'#4d9df7',weight:1,fillColor:'#4d9df7',fillOpacity:.12,interactive:false}).addTo(map);
-  userMarker=L.marker(userLocation,{icon:L.divIcon({html:'<div class="gps-dot"></div>',iconSize:[20,20],iconAnchor:[10,10],className:''})}).addTo(map).bindPopup(`Você está aqui · precisão aproximada: ${accuracy} m`);
-  if(!silent||!hasInteractedWithMap){map.invalidateSize({pan:false});map.setView(userLocation,accuracy<=100?16:accuracy<=500?15:13,{animate:false})}
+  if(userMarker)userMarker.remove();
+  const dot=document.createElement('div');dot.className='gps-dot';
+  userMarker=new maplibregl.Marker({element:dot,anchor:'center'})
+   .setLngLat([lng,lat])
+   .setPopup(new maplibregl.Popup({offset:16}).setText(`Sua localização · precisão aproximada de ${accuracy} m`))
+   .addTo(map);
+  if(!silent||!hasInteractedWithMap)goToPoint(lat,lng,accuracy<=100?16:accuracy<=500?15:13);
   locationHint(accuracy<=100?`Localização encontrada · precisão de ~${accuracy} m`:`Localização aproximada (~${accuracy} m). Ative Localização Precisa no celular.`,true);
   if(!silent)toast(`Localização atualizada (precisão de ~${accuracy} m).`);
  },err=>{
   if(request!==positionRequest)return;
   $('#locateButton').disabled=false;
   const message=err.code===1?'Permita o acesso à localização e ative Localização Precisa no navegador.':err.code===3?'GPS demorou para responder. Toque em ⌖ para tentar novamente.':'Não foi possível obter sua localização. Toque em ⌖ para tentar novamente.';
-  locationHint(message);
-  if(!silent)toast(message);
-  gpsHasResolved=true;
-  // Sem permissão de GPS, não inventa uma localização próxima.
+  locationHint(message);if(!silent)toast(message);gpsHasResolved=true;
   if(!userLocation&&restaurants.length&&!hasInteractedWithMap)fitAll();
  },{enableHighAccuracy:true,timeout:20000,maximumAge:0});
 }
 function initializeMap(){
- // O mapa é realmente interativo: gesto de pinça, arrastar, duplo toque e botões +/-.
- // Vista inicial ampla e neutra enquanto o usuário decide autorizar o GPS.
- map=L.map('map',{
-  zoomControl:false,preferCanvas:false,zoomSnap:1,
-  dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true,
-  boxZoom:true,keyboard:true,tap:false,worldCopyJump:true
- }).setView([-15.8,-47.9],5);
- const tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  maxZoom:19,minZoom:2,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
-  crossOrigin:true
- }).addTo(map);
- let failures=0;
- tiles.on('tileerror',()=>{failures++;if(failures===3)locationHint('O mapa não carregou por completo. Verifique a internet ou teste sem bloqueador de conteúdo.');});
- tiles.on('tileload',()=>{failures=0});
- markersLayer=L.layerGroup().addTo(map);
- map.on('dragstart zoomstart',()=>{hasInteractedWithMap=true});
- // Um toque no mapa move/navega. O cadastro é feito pelo botão “Avaliar lugar”.
- $('#zoomInButton').onclick=()=>map.zoomIn();
- $('#zoomOutButton').onclick=()=>map.zoomOut();
- setTimeout(()=>{map.invalidateSize({pan:false});locateUser(true)},400);
- window.addEventListener('orientationchange',()=>setTimeout(()=>map.invalidateSize({pan:false}),400));
- window.addEventListener('resize',()=>{if(activePage==='explore')map.invalidateSize({pan:false})});
+ if(!window.maplibregl){locationHint('Mapa indisponível. Recarregue a página com internet.');return}
+ map=new maplibregl.Map({
+  container:'map',
+  style:'https://tiles.openfreemap.org/styles/liberty',
+  center:[-47.9,-15.8],zoom:4.4,minZoom:2,maxZoom:19,
+  attributionControl:true,dragRotate:false,touchPitch:false,
+  cooperativeGestures:false
+ });
+ map.touchZoomRotate.disableRotation();
+ map.on('dragstart',()=>{hasInteractedWithMap=true});
+ map.on('zoomstart',e=>{if(e.originalEvent)hasInteractedWithMap=true});
+ map.on('error',e=>{console.warn('Falha na camada de mapa:',e.error||e);locationHint('Alguns elementos do mapa não carregaram. Confira sua conexão e atualize a página.',true)});
+ map.once('load',()=>{mapResize();renderMap();locationHint('Mapa pronto. Buscando localização…',true)});
+ $('#zoomInButton').onclick=()=>map.zoomIn({duration:250});
+ $('#zoomOutButton').onclick=()=>map.zoomOut({duration:250});
+ setTimeout(()=>{mapResize();locateUser(true)},350);
+ window.addEventListener('orientationchange',()=>setTimeout(mapResize,450));
+ window.addEventListener('resize',()=>{if(activePage==='explore')mapResize()});
 }
 
 function currentUserId(){return live?user?.id:'demo-me'}
@@ -132,10 +132,37 @@ function renderProfile(){
  const rows=friends.map(f=>{const otherId=f.sender_id===user.id?f.recipient_id:f.sender_id,other=profiles[otherId]||{},waiting=f.status==='pending',incoming=f.recipient_id===user.id;return `<div class="friend-row"><div class="tiny-avatar">${escapeHtml((other.display_name||'?')[0])}</div><div><strong>${escapeHtml(other.display_name||'Usuário')}</strong><small>@${escapeHtml(other.username||'')}</small></div>${waiting&&incoming?`<button data-accept="${f.id}">Aceitar</button>`:`<span class="status-label">${waiting?'Convite enviado':'Amigos ✓'}</span>`}</div>`}).join('');
  $('#friendList').innerHTML=rows||`<div class="empty-state"><p>Encontre alguém pelo @usuário e envie um convite.</p></div>`;
 }
-function renderMap(){if(!map)return;markersLayer.clearLayers();restaurants.filter(r=>!live || r.created_by===user?.id || reviews.some(v=>v.restaurant_id===r.id)).forEach(r=>{if(!Number.isFinite(Number(r.lat))||!Number.isFinite(Number(r.lng)))return;const mine=reviewByMe(r.id),isFriend=!mine&&reviews.some(v=>v.restaurant_id===r.id);const icon=L.divIcon({html:`<div class="pin-marker ${isFriend?'friend-pin':''}"><span>${emojiFor(r.name)}</span></div>`,iconSize:[40,44],iconAnchor:[20,39],popupAnchor:[0,-35]});L.marker([r.lat,r.lng],{icon}).addTo(markersLayer).bindPopup(`<div class="map-popup"><strong>${escapeHtml(r.name)}</strong><small>${escapeHtml(r.address||'')}</small><button data-open-place="${escapeHtml(r.id)}">${mine?'Ver minha avaliação':'Avaliar este lugar'}</button></div>`)});}
-function fitAll(){const locs=restaurants.filter(r=>Number.isFinite(Number(r.lat))&&Number.isFinite(Number(r.lng))).map(r=>[r.lat,r.lng]);if(locs.length)map.fitBounds(L.latLngBounds(locs).pad(.22),{maxZoom:14});else if(userLocation)map.setView(userLocation,15);else toast('Nenhum restaurante cadastrado ainda.')}
-function switchPage(page){activePage=page;document.body.dataset.page=page;$('#sectionTitle').textContent=({explore:'Restaurantes',feed:'Avaliações',profile:'Perfil'})[page];$('#headerSubtitle').textContent=({explore:'Seus lugares',feed:'Notas de vocês',profile:'Conta e amigos'})[page];document.querySelectorAll('.panel-page').forEach(el=>el.classList.toggle('active',el.id==='page-'+page));document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));if(page==='explore')requestAnimationFrame(()=>setTimeout(()=>map.invalidateSize({pan:false}),100))}
-function openPlace(id){const r=getRestaurant(id);if(!r)return;const mine=reviewByMe(id);const others=reviews.filter(x=>x.restaurant_id===id&&x.user_id!==currentUserId());modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> RESTAURANTE NO MAPA</div><h2>${emojiFor(r.name)} ${escapeHtml(r.name)}</h2><p>${escapeHtml(r.address||'Localização cadastrada')}</p><div class="modal-location">📍 <strong>Local no mapa</strong> · ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}</div>${mine?`<div class="feed-card" style="margin-top:15px"><strong>Sua avaliação · ★ ${Number(mine.rating).toFixed(1).replace('.',',')}</strong><p style="margin:9px 0 0">${escapeHtml(mine.note||'Sem comentário')}</p></div>`:''}${others.length?`<div style="margin-top:16px"><div class="mini-eyebrow" style="margin-bottom:10px">AMIGOS QUE CONHECEM</div>${feedMarkup(others)}</div>`:''}${mine?`<div class="feed-actions"><button class="text-action danger" data-delete-review="${escapeHtml(mine.id)}">Excluir avaliação</button></div>`:''}${(!live||r.created_by===user?.id)?`<div class="place-management"><button class="text-action" data-edit-place="${escapeHtml(r.id)}">Editar restaurante</button><button class="text-action danger" data-delete-place="${escapeHtml(r.id)}">Excluir restaurante</button></div>`:''}<div class="form-actions"><button class="btn-secondary" id="showOnMap">Ver no mapa</button><button class="btn-primary" id="reviewSelected">${mine?'Editar minha nota':'Avaliar este lugar'}</button></div>`);$('#reviewSelected').addEventListener('click',()=>openReview(r));$('#showOnMap').addEventListener('click',()=>{closeModal();switchPage('explore');map.setView([r.lat,r.lng],16)})}
+function renderMap(){
+ if(!map)return;
+ markersLayer.forEach(m=>m.remove());markersLayer=[];
+ restaurants.filter(r=>!live||r.created_by===user?.id||reviews.some(v=>v.restaurant_id===r.id)).forEach(r=>{
+  if(!Number.isFinite(Number(r.lat))||!Number.isFinite(Number(r.lng)))return;
+  const mine=reviewByMe(r.id),isFriend=!mine&&reviews.some(v=>v.restaurant_id===r.id);
+  const element=document.createElement('div');element.className=`pin-marker ${isFriend?'friend-pin':''}`;
+  const emoji=document.createElement('span');emoji.textContent=emojiFor(r.name);element.append(emoji);
+  const popupNode=document.createElement('div');popupNode.className='map-popup';
+  const title=document.createElement('strong');title.textContent=r.name;
+  const address=document.createElement('small');address.textContent=r.address||'';
+  const button=document.createElement('button');button.textContent=mine?'Ver minha avaliação':'Avaliar este lugar';
+  button.addEventListener('click',()=>{popup.remove();openPlace(r.id)});
+  popupNode.append(title,address,button);
+  const popup=new maplibregl.Popup({offset:28,maxWidth:'260px'}).setDOMContent(popupNode);
+  const marker=new maplibregl.Marker({element,anchor:'bottom'})
+   .setLngLat([Number(r.lng),Number(r.lat)]).setPopup(popup).addTo(map);
+  markersLayer.push(marker);
+ });
+}
+function fitAll(){
+ if(!map)return;
+ const locs=restaurants.filter(r=>Number.isFinite(Number(r.lat))&&Number.isFinite(Number(r.lng)))
+  .map(r=>[Number(r.lng),Number(r.lat)]);
+ if(locs.length===1){map.easeTo({center:locs[0],zoom:15,duration:400});return}
+ if(locs.length){const bounds=new maplibregl.LngLatBounds(locs[0],locs[0]);locs.forEach(p=>bounds.extend(p));map.fitBounds(bounds,{padding:55,maxZoom:14,duration:450});}
+ else if(userLocation)goToPoint(userLocation[0],userLocation[1],15);
+ else toast('Nenhum restaurante cadastrado ainda.');
+}
+function switchPage(page){activePage=page;document.body.dataset.page=page;$('#sectionTitle').textContent=({explore:'Restaurantes',feed:'Avaliações',profile:'Perfil'})[page];$('#headerSubtitle').textContent=({explore:'Seus lugares',feed:'Notas de vocês',profile:'Conta e amigos'})[page];document.querySelectorAll('.panel-page').forEach(el=>el.classList.toggle('active',el.id==='page-'+page));document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));if(page==='explore')requestAnimationFrame(()=>setTimeout(mapResize,120))}
+function openPlace(id){const r=getRestaurant(id);if(!r)return;const mine=reviewByMe(id);const others=reviews.filter(x=>x.restaurant_id===id&&x.user_id!==currentUserId());modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> RESTAURANTE NO MAPA</div><h2>${emojiFor(r.name)} ${escapeHtml(r.name)}</h2><p>${escapeHtml(r.address||'Localização cadastrada')}</p><div class="modal-location">📍 <strong>Local no mapa</strong> · ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}</div>${mine?`<div class="feed-card" style="margin-top:15px"><strong>Sua avaliação · ★ ${Number(mine.rating).toFixed(1).replace('.',',')}</strong><p style="margin:9px 0 0">${escapeHtml(mine.note||'Sem comentário')}</p></div>`:''}${others.length?`<div style="margin-top:16px"><div class="mini-eyebrow" style="margin-bottom:10px">AMIGOS QUE CONHECEM</div>${feedMarkup(others)}</div>`:''}${mine?`<div class="feed-actions"><button class="text-action danger" data-delete-review="${escapeHtml(mine.id)}">Excluir avaliação</button></div>`:''}${(!live||r.created_by===user?.id)?`<div class="place-management"><button class="text-action" data-edit-place="${escapeHtml(r.id)}">Editar restaurante</button><button class="text-action danger" data-delete-place="${escapeHtml(r.id)}">Excluir restaurante</button></div>`:''}<div class="form-actions"><button class="btn-secondary" id="showOnMap">Ver no mapa</button><button class="btn-primary" id="reviewSelected">${mine?'Editar minha nota':'Avaliar este lugar'}</button></div>`);$('#reviewSelected').addEventListener('click',()=>openReview(r));$('#showOnMap').addEventListener('click',()=>{closeModal();switchPage('explore');goToPoint(r.lat,r.lng,16)})}
 
 function editPlace(id){
  const r=getRestaurant(id);if(!r || (live&&r.created_by!==user?.id))return;
@@ -175,7 +202,7 @@ function openNewPlace(point=null){
   $('#geocodeOptions').querySelectorAll('[data-geocode]').forEach(button=>button.onclick=()=>{const p=found[Number(button.dataset.geocode)];chosen={lat:Number(p.lat),lng:Number(p.lon)};$('#newPlaceAddress').value=p.display_name.slice(0,180);$('#selectedCoordinates').textContent='✓ Localização confirmada no mapa';$('#geocodeOptions').innerHTML='';});
   }catch(err){toast(err.message)}finally{b.disabled=false;b.textContent='Buscar endereço no mapa'}
  };
- $('#newPlaceForm').onsubmit=e=>{e.preventDefault();if(!chosen){toast('Confirme o endereço para posicionar o restaurante corretamente.');return}const name=$('#newPlaceName').value.trim(),address=$('#newPlaceAddress').value.trim();closeModal();map.setView([chosen.lat,chosen.lng],16);openReview({id:null,name,address,lat:chosen.lat,lng:chosen.lng})};
+ $('#newPlaceForm').onsubmit=e=>{e.preventDefault();if(!chosen){toast('Confirme o endereço para posicionar o restaurante corretamente.');return}const name=$('#newPlaceName').value.trim(),address=$('#newPlaceAddress').value.trim();closeModal();goToPoint(chosen.lat,chosen.lng,16);openReview({id:null,name,address,lat:chosen.lat,lng:chosen.lng})};
 }
 function openReview(r){if(live&&!user){openAuth();return}const old=r.id?reviewByMe(r.id):null;let rating=old?Number(old.rating):0;modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> AVALIAÇÃO</div><h2>Como foi no ${escapeHtml(r.name)}?</h2><p></p><form id="reviewForm"><div class="field"><label>SUA NOTA</label><div class="rating-picker" id="ratingPicker">${[1,2,3,4,5].map(v=>`<button type="button" class="rating-star ${v<=Math.ceil(rating)?'selected':''}" data-rating="${v}" aria-label="${v} estrelas">★</button>`).join('')}<span class="rating-value" id="ratingValue">${rating?rating.toFixed(1).replace('.',',')+' / 5,0':'Escolha uma nota'}</span></div><small class="helper-text">Toque em uma estrela para a nota inteira; toque novamente para meia estrela.</small></div><div class="field"><label for="reviewNote">SUA REVIEW (OPCIONAL)</label><textarea id="reviewNote" class="form-textarea" maxlength="500" placeholder="O que você pediu? O que valeu a pena? Voltaria?">${escapeHtml(old?.note||'')}</textarea></div><div class="form-actions"><button type="button" class="btn-secondary" id="cancelReview">Cancelar</button><button class="btn-primary" type="submit">Salvar avaliação</button></div></form>`);
  $('#cancelReview').addEventListener('click',closeModal);
@@ -231,4 +258,4 @@ $('#addFriendButton').onclick=addFriend;
 $('#friendInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFriend()});
 $('#locateButton').onclick=()=>locateUser(false);
 $('#resetMapButton').onclick=fitAll;
-window.addEventListener('resize',()=>map.invalidateSize());
+window.addEventListener('resize',mapResize);

@@ -1,22 +1,22 @@
-# Restaurantes — v4 (mobile)
+# Restaurantes — versão 5
 
-## Atualizar GitHub Pages
-Substitua os arquivos da raiz do repositório pelos deste ZIP (especialmente `index.html`, `styles.css`, `app.js`). A configuração atual de Supabase foi preservada. Nenhuma migração SQL adicional é necessária se você já executou `atualizacao-v3.sql`.
+Atualização do mapa e dos cartões mobile.
 
-## Correções desta versão
-- Removida a caixa de busca do topo. A busca de endereço existe somente durante o cadastro ou edição de restaurantes.
-- `font-size: 16px` nos campos em dispositivos touch para evitar zoom automático do Safari sem impedir pinch-to-zoom.
-- Mapa base OpenStreetMap padrão sem inversões de cores/filtragem que afetavam os tiles.
-- GPS solicita localização no carregamento e no botão ⌖; usa alta precisão, exibe estimativa de erro e círculo de precisão. Necessita HTTPS e permissão do navegador, além da opção Localização Precisa ligada no iPhone.
-- Marcadores dos restaurantes são gerados com as coordenadas lat/lng salvas no Supabase. Ao cadastrar, a pessoa seleciona o resultado de endereço, ou o ponto no mapa.
-- A tela do mapa recalcula dimensões após alternância de aba/orientação.
+## Instalação
+Envie **todos os arquivos** desta pasta para a raiz do repositório GitHub Pages, substituindo os arquivos anteriores. Não há migração SQL nesta atualização. As contas e os restaurantes do Supabase são preservados.
 
-## Restrições
-O navegador não consegue forçar GPS exato: a precisão depende do aparelho, rede, permissões e ambiente. Google Maps Javascript exige API key e faturamento, portanto esta versão usa mapa padrão do OpenStreetMap sem chave, mantendo a interface escura.
-Mapas OSM e geocodificação pública (Nominatim) têm limites de uso e disponibilidade; destinados a testes e uso pessoal leve. Para implantação maior, use provedor com SLA ou infraestrutura própria.
+## Mudanças
+- Leaflet com zoom por pinça, duplo toque, arraste e botões `+` e `−`.
+- GPS solicitado ao entrar. O ícone `⌖` força nova solicitação e recentraliza na localização autorizada. Se não houver permissão, o mapa não alega conhecer a posição do aparelho.
+- Tocar no mapa não abre mais cadastro involuntário. O botão **Avaliar lugar** abre o fluxo de endereço e avaliação.
+- Endereços longos quebram linha no cartão, com limite visual de três linhas e sem rolagem horizontal.
+- Mapa padrão OpenStreetMap com atribuição, sem filtros, máscaras ou chave de API.
 
-## Teste no iPhone
-1. Verifique GitHub Pages Actions e abra o site atualizado em aba privativa.
-2. Vá à aba Mapa, autorize Localização Precisa e toque em ⌖.
-3. Toque em Avaliar lugar, digite nome e endereço completo e clique em Buscar endereço no mapa. Escolha resultado, dê nota e salve.
-4. Confirme o marcador no mapa e o cartão na lista. Teste excluir avaliação e editar restaurante.
+## Limites
+O GPS depende das permissões do Safari/iOS, da opção Localização Precisa e da qualidade do sinal. Os blocos do OpenStreetMap são fornecidos por terceiro e podem falhar por rede/bloqueadores; não há garantia de disponibilidade. Para uma experiência com a mesma infraestrutura e cobertura visual do Google Maps, seria necessária integração oficial com Google Maps Platform, que exige chave e configuração de faturamento.
+
+## Testes no iPhone
+- Permitir localização precisa para Safari, depois tocar em `⌖`.
+- Tocar `−` repetidas vezes e arrastar o mapa; pinçar para aproximar e afastar.
+- Verificar restaurante cadastrado no mapa; se o endereço foi geocodificado incorretamente na versão anterior, editar o endereço e selecionar o resultado certo.
+- Confirmar que um endereço longo aparece em até três linhas, sem arrastar a página horizontalmente.

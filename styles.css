@@ -46,3 +46,28 @@ html,body{overscroll-behavior:none}
 @media(max-width:760px){
  body[data-page="explore"] .leaflet-control-attribution{margin-bottom:calc(min(31dvh,265px) + 66px + env(safe-area-inset-bottom))!important;font-size:10px!important}
 }
+
+/* v5 — Controles reais do mapa, posicionamento e rolagem horizontal bloqueada. */
+html,body,.app-shell,.side-panel,.side-content,.panel-page,.restaurant-list{max-width:100%;overflow-x:hidden}
+#map,.map-area{touch-action:pan-x pan-y;}
+#map .leaflet-map-pane,#map .leaflet-tile-pane,#map .leaflet-tile-container,#map .leaflet-tile{filter:none!important;mix-blend-mode:normal!important;opacity:1}
+#map .leaflet-container{background:#e5e9ee!important}
+.map-tools{display:flex;flex-direction:column;gap:9px;z-index:560}
+.map-tools .map-tool{display:grid;place-items:center;flex-shrink:0;min-width:44px;min-height:44px;font-weight:700;font-size:23px;touch-action:manipulation}
+.place-card{box-sizing:border-box;min-width:0;max-width:100%;overflow:hidden;align-items:center}
+.place-content{min-width:0;max-width:100%;overflow:hidden;overflow-wrap:anywhere;word-break:normal}
+.place-name{white-space:normal;overflow-wrap:anywhere;line-height:1.4}
+.place-address{white-space:normal!important;text-overflow:clip!important;overflow-wrap:anywhere!important;word-break:normal!important;overflow:visible!important;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;max-width:100%}
+.place-foot{min-width:0;flex-wrap:wrap;gap:5px}
+.place-foot span{max-width:100%;overflow-wrap:anywhere}
+.feed-address,.modal p,.modal h2,.modal-location,.friend-row,.profile-top{overflow-wrap:anywhere;word-break:normal}
+.modal,.modal-backdrop{max-width:100vw;overflow-x:hidden}
+@media(max-width:760px){
+ .map-tools{top:calc(14px + env(safe-area-inset-top))!important;right:12px}
+ .side-panel{width:100%;max-width:100vw;overflow-x:hidden}
+ .side-content{overflow-x:hidden!important}
+ .panel-page{overflow-x:hidden!important;max-width:100%}
+ .restaurant-list,.place-card{width:100%;max-width:100%}
+ .map-area{overflow:hidden}
+ .leaflet-control-attribution{max-width:calc(100vw - 24px)!important}
+}

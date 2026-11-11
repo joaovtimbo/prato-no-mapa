@@ -1,79 +1,30 @@
 <!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f6f7f5" />
-  <meta name="description" content="Guarde os restaurantes que marcaram sua história. Avalie, descubra e compartilhe com amigos." />
-  <title>Prato no Mapa — Cada lugar tem uma história</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzxJ+9lAzmmpDYMhT0BE7rrzF8sA=" crossorigin="" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#101319" /><meta name="description" content="Seus restaurantes e avaliações no mapa." />
+<title>Restaurantes · Meu mapa</title><link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzxJ+9lAzmmpDYMhT0BE7rrzF8sA=" crossorigin=""/>
+<link rel="stylesheet" href="styles.css?v=2" /></head><body>
 <div class="app-shell">
-  <aside class="side-panel" id="sidePanel">
-    <header class="brand-head">
-      <div class="brand"><div class="brand-mark"><span>✳</span></div><div><strong>prato<span>no</span>mapa</strong><small>seu diário de restaurantes</small></div></div>
-      <button class="icon-button desktop-only" id="accountButton" title="Minha conta" aria-label="Minha conta"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 16-5 16 0"/></svg></button>
-    </header>
-
-    <div class="side-content">
-      <section class="panel-page active" id="page-explore">
-        <div class="eyebrow"><span class="eyebrow-dot"></span> EXPLORE SEUS SABORES</div>
-        <h1>Boas memórias<br/>começam à <em>mesa.</em></h1>
-        <p class="intro">O mapa dos lugares que você provou, amou e quer voltar.</p>
-        <div class="search-box"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg><input type="search" id="searchInput" placeholder="Restaurante, bairro ou cidade..." autocomplete="off"/><button id="clearSearch" class="clear-search hidden" aria-label="Limpar busca">×</button></div>
-        <div class="search-actions"><button class="text-link" id="searchPlaces"><span>⌕</span> Buscar lugares no mapa</button><span class="helper-mini">Resultados do OpenStreetMap</span></div>
-        <div class="search-results hidden" id="searchResults"></div>
-        <div class="stat-row" id="statsRow"><div><strong id="statVisits">0</strong><span>avaliados</span></div><div><strong id="statAverage">—</strong><span>minha média</span></div><div><strong id="statFriends">0</strong><span>amigos</span></div></div>
-        <div class="section-heading"><div><div class="mini-eyebrow">SEU GUIA PESSOAL</div><h2>Lugares no radar <span id="placesCount" class="count-bubble">0</span></h2></div><button class="sort-button" id="sortButton">Mais recentes ↓</button></div>
-        <div class="restaurant-list" id="restaurantList"></div>
-        <button class="add-place-wide" id="addPlaceSide"><span>＋</span> Adicionar um restaurante</button>
-      </section>
-
-      <section class="panel-page" id="page-feed">
-        <div class="eyebrow"><span class="eyebrow-dot"></span> SEU CÍRCULO GASTRONÔMICO</div>
-        <h1>O que andam<br/><em>provando?</em></h1>
-        <p class="intro">Suas avaliações e as descobertas dos seus amigos, num só lugar.</p>
-        <div class="filter-pills"><button class="filter-pill active" data-feed-filter="all">Todos</button><button class="filter-pill" data-feed-filter="mine">Minhas avaliações</button><button class="filter-pill" data-feed-filter="friends">Amigos</button></div>
-        <div class="feed-list" id="feedList"></div>
-      </section>
-
-      <section class="panel-page" id="page-profile">
-        <div class="eyebrow"><span class="eyebrow-dot"></span> SEU PASSAPORTE GASTRONÔMICO</div>
-        <div class="profile-top"><div class="profile-avatar" id="profileAvatar">V</div><div><h1 class="profile-name" id="profileName">Visitante</h1><p class="profile-handle" id="profileHandle">@visitante</p></div></div>
-        <div class="profile-bio">Uma vida inteira para descobrir novos lugares. 🍝</div>
-        <div class="profile-stats"><div><strong id="profileReviews">0</strong><span>avaliações</span></div><div><strong id="profileFriends">0</strong><span>amigos</span></div><div><strong id="profileAverage">—</strong><span>nota média</span></div></div>
-        <div id="authArea"></div>
-        <div class="section-heading profile-section"><div><div class="mini-eyebrow">PESSOAS & CONEXÕES</div><h2>Meus amigos</h2></div></div>
-        <div class="add-friend-box"><input id="friendInput" placeholder="Buscar por @usuário" maxlength="30"/><button class="primary-small" id="addFriendButton">Adicionar</button></div>
-        <div id="friendList" class="friend-list"></div>
-        <div class="section-heading profile-section"><div><div class="mini-eyebrow">MEU HISTÓRICO</div><h2>Minhas avaliações</h2></div></div>
-        <div id="myReviews" class="feed-list"></div>
-      </section>
-    </div>
-    <footer class="side-footer"><span class="status-dot"></span><span id="appStatus">Modo demonstração</span><span class="footer-end">Feito para quem ama comer bem ✳</span></footer>
-  </aside>
-
-  <main class="map-area" id="mapArea">
-    <div id="map" aria-label="Mapa interativo de restaurantes"></div>
-    <div class="map-topbar"><div class="map-label"><span class="live-dot"></span> SEU MAPA DE SABORES <span class="map-label-slash">/</span> <span id="mapCity">Explore o mundo</span></div></div>
-    <div class="map-tools"><button class="map-tool" id="locateButton" title="Minha localização" aria-label="Minha localização"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg></button><button class="map-tool" id="resetMapButton" title="Ver todos os restaurantes" aria-label="Ver todos os restaurantes"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/></svg></button></div>
-    <div class="map-add-hint">Dica: toque em qualquer ponto do mapa para cadastrar um lugar <span>✳</span></div>
-    <button id="floatingAdd" class="floating-add"><span>＋</span><span>Nova avaliação</span></button>
-    <div class="map-legend"><span class="legend-pin"></span> Lugares avaliados por você</div>
-  </main>
-
-  <nav class="bottom-nav" aria-label="Navegação principal"><button class="nav-item active" data-page="explore"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/></svg><span>Explorar</span></button><button class="nav-item" data-page="feed"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><span>Atividade</span></button><button class="nav-item" data-page="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 16-5 16 0"/></svg><span>Perfil</span></button></nav>
+<main class="map-area" id="mapArea"><div id="map" aria-label="Mapa interativo"></div>
+ <div class="map-search"><div class="search-box"><span class="search-symbol">⌕</span><input id="searchInput" type="search" placeholder="Buscar restaurante ou endereço" autocomplete="off" aria-label="Buscar restaurante ou endereço"><button id="clearSearch" class="clear-search hidden" aria-label="Limpar busca">×</button></div><button id="searchPlaces" class="search-go" aria-label="Buscar no mapa">Buscar</button></div>
+ <div id="searchResults" class="search-results hidden"></div>
+ <div class="map-tools"><button class="map-tool" id="locateButton" title="Minha localização" aria-label="Minha localização">⌖</button><button class="map-tool" id="resetMapButton" title="Mostrar restaurantes" aria-label="Mostrar restaurantes">▣</button></div>
+ <button id="floatingAdd" class="floating-add"><span>＋</span> Avaliar lugar</button>
+ <div class="map-attribution-label">Restaurantes que você e seus amigos avaliaram</div>
+</main>
+<aside class="side-panel" id="sidePanel">
+ <div class="sheet-handle" aria-hidden="true"></div>
+ <div class="panel-heading"><div><strong id="sectionTitle">Restaurantes</strong><span id="headerSubtitle">Sua lista no mapa</span></div><div class="panel-counter" id="placesCount">0</div></div>
+ <div class="side-content">
+  <section class="panel-page active" id="page-explore"><div class="quick-stats"><span><b id="statVisits">0</b> avaliações</span><span><b id="statAverage">—</b> média</span><span><b id="statFriends">0</b> amigos</span></div><div class="list-toolbar"><span>Meus lugares</span><button id="sortButton">Recentes ↓</button></div><div id="restaurantList" class="restaurant-list"></div><button id="addPlaceSide" class="add-inline">＋ Adicionar restaurante</button></section>
+  <section class="panel-page" id="page-feed"><div class="filter-pills"><button data-feed-filter="all" class="filter-pill active">Todos</button><button data-feed-filter="mine" class="filter-pill">Minhas</button><button data-feed-filter="friends" class="filter-pill">Amigos</button></div><div class="feed-list" id="feedList"></div></section>
+  <section class="panel-page" id="page-profile"><div class="profile-top"><div id="profileAvatar" class="profile-avatar">?</div><div><h1 id="profileName">Visitante</h1><p id="profileHandle">@visitante</p></div></div><div class="profile-stats"><div><strong id="profileReviews">0</strong><span>avaliações</span></div><div><strong id="profileFriends">0</strong><span>amigos</span></div><div><strong id="profileAverage">—</strong><span>média</span></div></div><div id="authArea"></div><h2 class="section-small">Amigos</h2><div class="add-friend-box"><input id="friendInput" placeholder="@nome_de_usuario" maxlength="30"/><button id="addFriendButton">Adicionar</button></div><div id="friendList" class="friend-list"></div><h2 class="section-small">Minhas avaliações</h2><div id="myReviews" class="feed-list"></div></section>
+ </div><footer class="side-footer"><span id="appStatus">Carregando…</span></footer>
+</aside>
+<nav class="bottom-nav" aria-label="Navegação"><button data-page="explore" class="nav-item active"><span class="nav-icon">⌖</span><span>Mapa</span></button><button data-page="feed" class="nav-item"><span class="nav-icon">☰</span><span>Avaliações</span></button><button data-page="profile" class="nav-item"><span class="nav-icon">◯</span><span>Perfil</span></button></nav>
 </div>
-
-<div id="modalBackdrop" class="modal-backdrop hidden"><div class="modal" id="modal" role="dialog" aria-modal="true"><button class="modal-close" id="modalClose" aria-label="Fechar">×</button><div id="modalContent"></div></div></div>
+<div id="modalBackdrop" class="modal-backdrop hidden"><div id="modal" class="modal" role="dialog" aria-modal="true"><button id="modalClose" class="modal-close" aria-label="Fechar">×</button><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script type="module" src="app.js"></script>
-</body>
-</html>
+<script type="module" src="app.js?v=2"></script></body></html>

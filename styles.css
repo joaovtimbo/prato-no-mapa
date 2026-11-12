@@ -117,3 +117,20 @@ html,body,.app-shell,.side-panel,.side-content,.panel-page,.restaurant-list{max-
  .side-content,.panel-page{background:#11161d;}
 }
 .suggestion-source{display:block;font-size:10px;color:#87a49a;margin-top:4px;}
+
+
+/* v9: ícones do rodapé, busca com Geoapify e correção da fresta */
+.nav-icon{display:grid;place-items:center;height:24px;width:24px}
+.nav-icon svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.suggestion{gap:6px}
+.suggestion strong{font-size:14px;line-height:1.3}
+.suggestion-source{display:inline-flex;align-items:center;justify-content:flex-start;width:max-content;padding:4px 8px;border-radius:999px;background:#27313b;color:#9fe8c2;font-size:10px;font-weight:700}
+.place-suggestions{display:grid;gap:6px;margin-top:10px}
+.place-suggestions .search-result{border:1px solid #36424d;border-radius:12px;background:#162029;padding:12px 11px}
+.place-suggestions .search-result:last-child{border:1px solid #36424d}
+@media(max-width:760px){
+  .side-panel{overflow:hidden!important}
+  .side-panel::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:8px;background:#11161d;pointer-events:none;z-index:4}
+  .bottom-nav{background:#151a21!important;border-top:0!important;box-shadow:0 -8px 0 0 #11161d!important}
+  .bottom-nav::before{content:"";position:absolute;left:0;right:0;top:-6px;height:8px;background:#11161d;pointer-events:none}
+}

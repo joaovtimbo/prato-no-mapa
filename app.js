@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, GEOAPIFY_API_KEY } from './config.js';
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (text='') => String(text ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -9,6 +9,7 @@ const DEMO_KEY='pratonomapa_demo_v1';
 const emojiFor = (name) => /sushi|japon|temaki|ramen/i.test(name)?'🍣':/pizza|pizzaria|italian|massa/i.test(name)?'🍕':/café|cafe|coffee|padaria/i.test(name)?'☕':/burger|hamb|lanche/i.test(name)?'🍔':'🍽️';
 const classFor = (name) => /sushi|japon|temaki|ramen/i.test(name)?'sushi':/pizza|pizzaria|italian|massa/i.test(name)?'pizza':/café|cafe|coffee|padaria/i.test(name)?'cafe':/burger|hamb|lanche/i.test(name)?'burger':'other';
 const moneyBR = v => v == null || v === '' ? '' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const hasGeoapify = () => typeof GEOAPIFY_API_KEY === 'string' && GEOAPIFY_API_KEY.trim() && !/COLE|YOUR|SUA_CHAVE/i.test(GEOAPIFY_API_KEY);
 const avatarHtml = (obj, name, cls='tiny-avatar') => obj?.avatar_url ? `<span class="${cls} photo-avatar"><img src="${escapeHtml(obj.avatar_url)}" alt="Foto de ${escapeHtml(name)}" loading="lazy" referrerpolicy="no-referrer"></span>` : `<span class="${cls}">${escapeHtml((name||'?')[0].toUpperCase())}</span>`;
 const reviewDetails = r => {const entries=[['O que pediu',r.ordered_item],['O que valeu a pena',r.highlights],['Voltaria?',r.would_return],['Valor da conta',moneyBR(r.bill_amount)]];return entries.filter(([,v])=>v!==null&&v!==undefined&&v!=='').map(([k,v])=>`<div class="review-detail"><small>${k}</small><span>${escapeHtml(v)}</span></div>`).join('')};
 const prettyStars = v => '★'.repeat(Math.round(Number(v)))+'☆'.repeat(5-Math.round(Number(v)));
@@ -205,7 +206,7 @@ function openNewPlace(point=null){
   return `<button type="button" class="search-result suggestion" data-suggestion="${item.key}"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(address)}</small><span class="suggestion-source">${escapeHtml(item.source)}</span></button>`;
  }
  function showSuggestions(items,target){
-  target.innerHTML=items.length?items.map(placeDisplay).join(''):'<small class="helper-text">Não encontrado nas bases gratuitas. Você ainda pode informar o endereço manualmente.</small>';
+  target.innerHTML=items.length?items.map(placeDisplay).join(''):`<small class="helper-text">${hasGeoapify()?'Não encontramos esse restaurante. Você ainda pode informar o endereço manualmente.':'Para uma busca melhor por nome de restaurante, adicione sua chave gratuita da Geoapify no arquivo config.js. Enquanto isso, você ainda pode informar o endereço manualmente.'}</small>`;
   target.querySelectorAll('[data-suggestion]').forEach(btn=>btn.onclick=()=>{
    const selected=items.find(v=>v.key===btn.dataset.suggestion);if(!selected)return;
    chosen={lat:selected.lat,lng:selected.lng};
@@ -215,63 +216,83 @@ function openNewPlace(point=null){
    target.innerHTML='';$('#geocodeOptions').innerHTML='';
   });
  }
- function normalizePlace(s){return (s||'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
- function uniqPlaces(items){const seen=new Set();return items.filter(item=>{const key=normalizePlace(item.name)+'|'+item.lat.toFixed(3)+'|'+item.lng.toFixed(3);if(seen.has(key))return false;seen.add(key);return true}).slice(0,9).map((item,i)=>({...item,key:String(i)}))}
+ function normalizePlace(s){return (s||'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
+ function uniqPlaces(items){const seen=new Set();return items.filter(item=>{const key=normalizePlace(item.name)+'|'+item.lat.toFixed(4)+'|'+item.lng.toFixed(4);if(seen.has(key))return false;seen.add(key);return true}).slice(0,10).map((item,i)=>({...item,key:String(i)}))}
+ async function geoapifyPlaces(q,signal){
+  if(!hasGeoapify())return [];
+  const params=new URLSearchParams({text:q,format:'json',type:'amenity',lang:'pt',filter:'countrycode:br',limit:'10',apiKey:GEOAPIFY_API_KEY.trim()});
+  const center=(map?.getCenter&&map.getCenter())||null;
+  const biasLat=userLocation?.[0] ?? center?.lat;
+  const biasLng=userLocation?.[1] ?? center?.lng;
+  if(Number.isFinite(biasLat)&&Number.isFinite(biasLng))params.set('bias',`proximity:${biasLng},${biasLat}`);
+  const res=await fetch('https://api.geoapify.com/v1/geocode/autocomplete?'+params,{signal,headers:{Accept:'application/json'}});
+  if(!res.ok)throw new Error('Busca Geoapify indisponível');
+  const payload=await res.json();
+  const queryNorm=normalizePlace(q);
+  const terms=queryNorm.split(' ').filter(Boolean);
+  return (payload.results||[]).map(place=>{
+   const name=place.name || place.address_line1 || place.formatted?.split(',')[0] || '';
+   const city=[place.city,place.state].filter(Boolean).join(', ');
+   const address=place.formatted || [place.address_line1,city,place.country].filter(Boolean).join(', ');
+   return {name,address,lat:Number(place.lat),lng:Number(place.lon),source:'Geoapify · lugares'};
+  }).filter(item=>Number.isFinite(item.lat)&&Number.isFinite(item.lng)&&item.name&&terms.every(term=>normalizePlace(item.name+' '+item.address).includes(term)));
+ }
  async function photonPlaces(q,signal){
-  const params=new URLSearchParams({q,limit:'12',lang:'pt'});
-  // Com a busca global o usuario encontra restaurantes de outras cidades.
+  const params=new URLSearchParams({q,limit:'10',lang:'pt'});
   const res=await fetch('https://photon.komoot.io/api/?'+params,{signal});
   if(!res.ok)throw new Error('Busca Photon indisponível');
   const payload=await res.json();
   const needles=normalizePlace(q).split(' ').filter(Boolean);
   return (payload.features||[]).filter(f=>f.geometry?.coordinates?.length===2&&f.properties?.name).map(f=>{
    const v=f.properties;const address=[v.street&&[v.street,v.housenumber].filter(Boolean).join(', '),v.district||v.city,v.state,v.country].filter(Boolean).join(', ');
-   return {name:v.name,address:address||v.name,lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0]),source:'OpenStreetMap · Photon',tag:v.osm_value||''}
-  }).filter(v=>needles.some(n=>normalizePlace(v.name).includes(n)));
+   return {name:v.name,address:address||v.name,lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0]),source:'OpenStreetMap · Photon'}
+  }).filter(v=>needles.some(n=>normalizePlace(v.name+' '+v.address).includes(n)));
  }
  async function nearbyPlaces(q,signal){
-  const center=map?.getCenter()||userLocation;
-  if(!center)return [];
-  const safe=q.replace(/[\\"\[\](){}|?*+.^$]/g,'').replace(/\s+/g,' ').trim();
+  const center=(map?.getCenter&&map.getCenter())||null;
+  const lat=Number(userLocation?.[0] ?? center?.lat),lng=Number(userLocation?.[1] ?? center?.lng);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng))return [];
+  const safe=q.replace(/[\"\[\](){}|?*+.^$]/g,'').replace(/\s+/g,' ').trim();
   if(safe.length<4)return [];
   const words=safe.split(' ').filter(w=>w.length>=3);
   const term=(words[0]||safe).slice(0,35);
-  const escaped=term.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
-  const lat=Number(center.lat).toFixed(5),lon=Number(center.lng).toFixed(5);
-  // Pesquisa restrita em torno da area visivel. Nada de extrair todos os POIs.
-  const query=`[out:json][timeout:12];(nwr(around:30000,${lat},${lon})["name"~"${escaped}",i]["amenity"~"^(restaurant|cafe|fast_food|bar|pub|food_court)$"];);out center 20;`;
+  const escaped=term.replace(/\/g,'\\').replace(/"/g,'\"');
+  const query=`[out:json][timeout:12];(nwr(around:50000,${lat.toFixed(5)},${lng.toFixed(5)})["name"~"${escaped}",i]["amenity"~"^(restaurant|cafe|fast_food|bar|pub|food_court)$"];);out center 20;`;
   const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:query}),signal});
   if(!res.ok)throw new Error('Busca local indisponível');
   const payload=await res.json();
   const full=normalizePlace(safe);
   return (payload.elements||[]).map(e=>{
-   const t=e.tags||{};const lat=Number(e.lat??e.center?.lat),lng=Number(e.lon??e.center?.lon);
+   const t=e.tags||{};const rlat=Number(e.lat??e.center?.lat),rlng=Number(e.lon??e.center?.lon);
    const address=[t['addr:street']&&[t['addr:street'],t['addr:housenumber']].filter(Boolean).join(', '),t['addr:suburb'],t['addr:city'],t['addr:state']].filter(Boolean).join(', ');
-   return {name:t.name||'',address:address||'Endereço não informado · confira no mapa',lat,lng,source:'OpenStreetMap · restaurantes próximos'};
-  }).filter(v=>Number.isFinite(v.lat)&&Number.isFinite(v.lng)&&normalizePlace(v.name).includes(full.split(' ')[0]));
+   return {name:t.name||'',address:address||'Endereço não informado · confira no mapa',lat:rlat,lng:rlng,source:'OpenStreetMap · restaurantes próximos'};
+  }).filter(v=>Number.isFinite(v.lat)&&Number.isFinite(v.lng)&&normalizePlace(v.name+' '+v.address).includes(full.split(' ')[0]||''));
  }
  $('#newPlaceName').addEventListener('input',()=>{
   clearTimeout(nameSearchTimer);searchController?.abort();const seq=++searchSequence;
   const q=$('#newPlaceName').value.trim(),target=$('#placeSuggestions');
   if(q.length<3){target.innerHTML='';return}
-  target.innerHTML='<small class="helper-text">Procurando estabelecimentos…</small>';
+  target.innerHTML='<small class="helper-text">Procurando restaurantes…</small>';
   nameSearchTimer=setTimeout(async()=>{
-   const cacheKey=normalizePlace(q)+'|'+(map?.getCenter().lat.toFixed(1)||'')+'|'+(map?.getCenter().lng.toFixed(1)||'');
+   const center=(map?.getCenter&&map.getCenter())||null;
+   const cacheKey=[normalizePlace(q),center?center.lat.toFixed(1):'',center?center.lng.toFixed(1):'',hasGeoapify()?'geoapify':'fallback'].join('|');
    if(searchCache.has(cacheKey)){showSuggestions(searchCache.get(cacheKey),target);return}
    searchController=new AbortController();const signal=searchController.signal;
    let found=[];
-   try{found=await photonPlaces(q,signal)}catch(e){if(e.name==='AbortError')return}
+   try{
+    found=await geoapifyPlaces(q,signal);
+    if(!found.length)found=await photonPlaces(q,signal);
+   }catch(e){if(e.name==='AbortError')return;try{found=await photonPlaces(q,signal)}catch(err){if(err.name==='AbortError')return;found=[]}}
    if(seq!==searchSequence)return;
-   showSuggestions(uniqPlaces(found),target);
-   // Segunda fonte somente quando o Photon nao trouxe um nome suficientemente proximo.
-   // Delay e busca espacial pequena evitam excesso de requisicoes na API publica.
-   const exact=found.some(x=>normalizePlace(x.name).includes(normalizePlace(q)));
+   let merged=uniqPlaces(found);
+   showSuggestions(merged,target);
+   const exact=merged.some(x=>normalizePlace(x.name+' '+x.address).includes(normalizePlace(q)));
    if(!exact && q.length>=4){
     target.insertAdjacentHTML('beforeend','<small class="helper-text">Buscando também nos restaurantes próximos do mapa…</small>');
-    try{const extras=await nearbyPlaces(q,signal);if(seq!==searchSequence)return;found=uniqPlaces([...found,...extras]);showSuggestions(found,target)}catch(e){if(e.name!=='AbortError'&&seq===searchSequence)showSuggestions(uniqPlaces(found),target)}
+    try{const extras=await nearbyPlaces(q,signal);if(seq!==searchSequence)return;merged=uniqPlaces([...merged,...extras]);showSuggestions(merged,target)}catch(e){if(e.name!=='AbortError'&&seq===searchSequence)showSuggestions(merged,target)}
    }
-   if(seq===searchSequence)searchCache.set(cacheKey,uniqPlaces(found));
-  },1100);
+   if(seq===searchSequence)searchCache.set(cacheKey,merged);
+  },420);
  });
  $('#newPlaceAddress').addEventListener('input',()=>{chosen=null;$('#selectedCoordinates').textContent='Selecione um resultado da busca para confirmar a localização.'});
  $('#verifyAddress').onclick=async()=>{

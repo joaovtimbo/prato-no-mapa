@@ -4,7 +4,7 @@
 <meta name="referrer" content="strict-origin-when-cross-origin"/><meta name="theme-color" content="#101319" /><meta name="description" content="Seus restaurantes e avaliações no mapa." />
 <title>Meus lugares</title><link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.css"/>
-<link rel="stylesheet" href="styles.css?v=8" /></head><body>
+<link rel="stylesheet" href="styles.css?v=9" /></head><body>
 <div class="app-shell">
 <main class="map-area" id="mapArea"><div id="map" aria-label="Mapa interativo"></div>
  <div id="locationHint" class="location-hint" role="status" aria-live="polite">Buscando sua localização…</div>
@@ -21,9 +21,9 @@
   <section class="panel-page" id="page-profile"><div class="profile-top"><div id="profileAvatar" class="profile-avatar">?</div><div><h1 id="profileName">Visitante</h1><p id="profileHandle">@visitante</p></div></div><div class="profile-stats"><div><strong id="profileReviews">0</strong><span>avaliações</span></div><div><strong id="profileFriends">0</strong><span>amigos</span></div><div><strong id="profileAverage">—</strong><span>média</span></div></div><div id="authArea"></div><h2 class="section-small">Amigos</h2><div class="add-friend-box"><input id="friendInput" placeholder="@nome_de_usuario" maxlength="30"/><button id="addFriendButton">Adicionar</button></div><div id="friendList" class="friend-list"></div><h2 class="section-small">Minhas avaliações</h2><div id="myReviews" class="feed-list"></div></section>
  </div><footer class="side-footer"><span id="appStatus">Carregando…</span></footer>
 </aside>
-<nav class="bottom-nav" aria-label="Navegação"><button data-page="explore" class="nav-item active"><span class="nav-icon">⌖</span><span>Mapa</span></button><button data-page="feed" class="nav-item"><span class="nav-icon">☰</span><span>Avaliações</span></button><button data-page="profile" class="nav-item"><span class="nav-icon">◯</span><span>Perfil</span></button></nav>
+<nav class="bottom-nav" aria-label="Navegação"><button data-page="explore" class="nav-item active"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.33-6-11a6 6 0 1 1 12 0c0 5.67-6 11-6 11Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg></span><span>Mapa</span></button><button data-page="feed" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h10"></path></svg></span><span>Avaliações</span></button><button data-page="profile" class="nav-item"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg></span><span>Perfil</span></button></nav>
 </div>
 <div id="modalBackdrop" class="modal-backdrop hidden"><div id="modal" class="modal" role="dialog" aria-modal="true"><button id="modalClose" class="modal-close" aria-label="Fechar">×</button><div id="modalContent"></div></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="https://unpkg.com/maplibre-gl@5.13.0/dist/maplibre-gl.js"></script>
-<script type="module" src="app.js?v=8"></script></body></html>
+<script type="module" src="app.js?v=9"></script></body></html>

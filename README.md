@@ -1,22 +1,14 @@
-# Restaurantes v9
+# Restaurantes v9.1 - correção de inicialização
 
-Versão com:
-- busca de restaurantes melhorada com **Geoapify** (plano gratuito)
-- fallback para Photon/OpenStreetMap se a chave não estiver configurada
-- correção visual da fresta entre painel e rodapé no iPhone
-- novos ícones no rodapé
-
-## Como ativar a busca melhor
-
-1. Crie uma conta gratuita em https://www.geoapify.com/
-2. Gere uma chave de API gratuita.
-3. Abra o arquivo `config.js`.
-4. Cole a chave em `GEOAPIFY_API_KEY`.
-5. Suba os arquivos no GitHub Pages.
-
-A documentação oficial da Geoapify informa que a chave pode ser criada gratuitamente, sem cartão, e que o Places API tem plano gratuito com limite diário.
+Esta versão corrige a inicialização travada observada na v9.0. A chave Geoapify agora é opcional; mesmo que o arquivo `config.js` do GitHub não exporte `GEOAPIFY_API_KEY`, o mapa, login e avaliações continuam funcionando. Também corrigimos a expressão regular da busca próxima e forçamos atualização do cache.
 
 ## Publicação
 
-Basta substituir os arquivos antigos pelos desta versão no repositório do GitHub.
-Não há mudança de banco de dados nesta versão.
+1. Abra o ZIP e faça upload dos arquivos para a raiz do repositório GitHub Pages, substituindo os existentes.
+2. Confirme o commit na branch main e aguarde a publicação em Actions.
+3. Teste em janela privada no iPhone.
+4. Para ativar Geoapify, adicione `export const GEOAPIFY_API_KEY = 'SUA_CHAVE';` em `config.js`. Nunca coloque chave secreta do Supabase no GitHub.
+
+Não precisa executar SQL e os dados existentes não são modificados. O mapa continua MapLibre GL JS com OpenFreeMap.
+
+A cobertura de restaurantes ainda depende dos dados do provedor e pode não incluir todos os estabelecimentos do Google Maps.

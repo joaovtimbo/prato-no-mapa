@@ -1,4 +1,6 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY, GEOAPIFY_API_KEY } from './config.js';
+import * as appConfig from './config.js';
+const { SUPABASE_URL, SUPABASE_ANON_KEY } = appConfig;
+const GEOAPIFY_API_KEY = appConfig.GEOAPIFY_API_KEY || '';
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (text='') => String(text ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -256,7 +258,7 @@ function openNewPlace(point=null){
   if(safe.length<4)return [];
   const words=safe.split(' ').filter(w=>w.length>=3);
   const term=(words[0]||safe).slice(0,35);
-  const escaped=term.replace(/\/g,'\\').replace(/"/g,'\"');
+  const escaped=term.replace(/[\\"\[\](){}|?*+.^$]/g, ' ').trim();
   const query=`[out:json][timeout:12];(nwr(around:50000,${lat.toFixed(5)},${lng.toFixed(5)})["name"~"${escaped}",i]["amenity"~"^(restaurant|cafe|fast_food|bar|pub|food_court)$"];);out center 20;`;
   const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:new URLSearchParams({data:query}),signal});
   if(!res.ok)throw new Error('Busca local indisponível');

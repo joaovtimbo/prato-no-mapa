@@ -1,26 +1,20 @@
-# Restaurantes — versão 7
+# Restaurantes — versão 8 (sem custos de API)
 
-## Atualização sem perder avaliações
+## Instalação
 
-1. Antes de publicar, execute **`atualizacao-v7.sql`** no **Supabase → SQL Editor** e confira se aparece `Success`.
-2. Confira em **Authentication → URL Configuration** que **Site URL** e a lista **Redirect URLs** incluem `https://joaovtimbo.github.io/prato-no-mapa/`.
-3. No GitHub, repositório `joaovtimbo/prato-no-mapa`, substitua os arquivos da raiz pelos deste ZIP (`index.html`, `app.js`, `styles.css`, etc.) e confirme o commit na branch `main`.
-4. Aguarde o status de publicação na aba Actions; teste em aba privada no celular. Nunca publique uma chave `service_role` ou `secret`.
+1. Envie os arquivos deste ZIP para a raiz do repositório GitHub Pages, substituindo os arquivos antigos.
+2. Confirme a publicação na aba Actions. Abra o site em aba privada no celular.
+3. Nenhum SQL adicional é necessário **se a versão 7 já foi configurada**. Caso não tenha configurado a v7, execute `atualizacao-v7.sql` uma única vez no Supabase.
 
-**Não execute `schema.sql` novamente:** é apenas a estrutura inicial, preservada no pacote como referência. O arquivo `atualizacao-v7.sql` é o único SQL novo desta versão.
+## Mudanças
 
-## Novidades
+- Corrigida a fresta entre a lista de restaurantes e o menu inferior no iPhone, usando alturas compatíveis e uma faixa opaca de segurança.
+- Busca por nome aprimorada: pesquisa global no Photon e, caso não haja correspondência suficiente, busca adicional de restaurantes no OpenStreetMap via Overpass em até 30 km do centro do mapa.
+- As opções exibem nome e endereço disponível. Selecionar uma sugestão preenche as coordenadas para o marcador; confirme o endereço antes de avaliar.
+- Sem chave paga, mas **sem acesso ao catálogo do Google Maps**: locais ausentes do OpenStreetMap podem não aparecer.
+- APIs públicas têm limites e não garantem disponibilidade. As pesquisas são acionadas após pausa de digitação; não faça testes automatizados repetitivos.
+- Para procurar um estabelecimento de outra cidade, mova o mapa até essa cidade. O Photon também pesquisa nomes sem restrição regional.
 
-- **Esqueci minha senha:** na tela de login, solicite o e-mail de recuperação. O link recebido retorna ao site e abre o formulário de nova senha. Dependente das configurações de e-mail do projeto Supabase (o SMTP padrão possui limites e restrições). A senha não é armazenada pelo site.
-- **Foto de perfil:** no Perfil, `Alterar foto do perfil`; escolher uma imagem da galeria ou do aparelho. O navegador redimensiona e salva JPEG no bucket público `avatars` do Supabase Storage. As fotos são publicamente acessíveis por quem possui a URL; evite fotos sensíveis. Imagens que o navegador não consegue decodificar não serão enviadas.
-- **Busca de restaurantes pelo nome:** ao digitar 3 ou mais caracteres, mostra sugestões pelo Photon/Komoot (dados OpenStreetMap). É uma API pública de demonstração sem disponibilidade garantida, com limites de uso; se não achar, procure o endereço manualmente. Sempre confira se o endereço selecionado é o correto. Uma busca não altera locais existentes.
-- **Avaliação com campos separados:** o que pediu, o que valeu a pena, se voltaria e conta total (R$), todos opcionais; nota permanece obrigatória. Edição preserva esses valores.
-- Mantido **MapLibre com OpenFreeMap** da versão 6.
+## Teste sugerido
 
-## Testes rápidos
-
-1. Entrar e sair; enviar link de recuperação e definir senha nova pelo link recebido.
-2. Alterar foto de perfil no iPhone e conferir após atualizar a página.
-3. Pesquisar nome do restaurante, selecionar um endereço e salvar avaliação; marcador deve aparecer no mapa.
-4. Registrar valor `125,50`, escolher `Talvez`, salvar e depois editar.
-5. Verificar reviews antigas (campo legado `note`) sem perda de dados.
+No celular, verifique que não há faixa de mapa visível entre a lista e o menu. Em 'Avaliar lugar', digite um nome e observe sugestões; confirme sempre o endereço antes de salvar. Para um nome ausente das bases, continue pela busca manual de endereço.

@@ -108,3 +108,12 @@ html,body,.app-shell,.side-panel,.side-content,.panel-page,.restaurant-list{max-
 .auth-links{text-align:center;margin:15px 0 0}
 .auth-links button{background:none;border:0;color:#a0ecc4;min-height:44px;padding:9px}
 .form-input,.form-textarea,select.form-input,#friendInput{font-size:16px!important}
+
+/* v8: junção sólida entre a lista e a navegação inferior no iPhone. */
+@media (max-width:760px){
+ .side-panel{bottom:calc(64px + env(safe-area-inset-bottom) - 1px)!important;background:#11161d!important;border-bottom:0!important;}
+ .bottom-nav{background:#151a21!important;border-top:0!important;box-shadow:0 -5px 0 0 #151a21!important;}
+ .bottom-nav::before{content:"";position:absolute;top:-4px;left:0;right:0;height:4px;background:#151a21;pointer-events:none;}
+ .side-content,.panel-page{background:#11161d;}
+}
+.suggestion-source{display:block;font-size:10px;color:#87a49a;margin-top:4px;}

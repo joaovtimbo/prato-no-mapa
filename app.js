@@ -8,6 +8,9 @@ const randomId = () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Ma
 const DEMO_KEY='pratonomapa_demo_v1';
 const emojiFor = (name) => /sushi|japon|temaki|ramen/i.test(name)?'🍣':/pizza|pizzaria|italian|massa/i.test(name)?'🍕':/café|cafe|coffee|padaria/i.test(name)?'☕':/burger|hamb|lanche/i.test(name)?'🍔':'🍽️';
 const classFor = (name) => /sushi|japon|temaki|ramen/i.test(name)?'sushi':/pizza|pizzaria|italian|massa/i.test(name)?'pizza':/café|cafe|coffee|padaria/i.test(name)?'cafe':/burger|hamb|lanche/i.test(name)?'burger':'other';
+const moneyBR = v => v == null || v === '' ? '' : Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const avatarHtml = (obj, name, cls='tiny-avatar') => obj?.avatar_url ? `<span class="${cls} photo-avatar"><img src="${escapeHtml(obj.avatar_url)}" alt="Foto de ${escapeHtml(name)}" loading="lazy" referrerpolicy="no-referrer"></span>` : `<span class="${cls}">${escapeHtml((name||'?')[0].toUpperCase())}</span>`;
+const reviewDetails = r => {const entries=[['O que pediu',r.ordered_item],['O que valeu a pena',r.highlights],['Voltaria?',r.would_return],['Valor da conta',moneyBR(r.bill_amount)]];return entries.filter(([,v])=>v!==null&&v!==undefined&&v!=='').map(([k,v])=>`<div class="review-detail"><small>${k}</small><span>${escapeHtml(v)}</span></div>`).join('')};
 const prettyStars = v => '★'.repeat(Math.round(Number(v)))+'☆'.repeat(5-Math.round(Number(v)));
 let supabase=null, live=false, user=null, profile=null;
 let restaurants=[], reviews=[], friends=[], profiles={}, pendingPoint=null, searchResults=[], activePage='explore', feedFilter='all', sortLatest=true, map, markersLayer=[];
@@ -120,16 +123,16 @@ function renderRestaurants(){
 }
 function feedMarkup(items){
  if(!items.length)return '<div class="empty-state"><strong>Sem avaliações ainda</strong></div>';
- return sortByDate(items).map(r=>{const place=getRestaurant(r.restaurant_id),isMine=r.user_id===currentUserId();return `<article class="feed-card"><div class="feed-user"><div class="tiny-avatar">${escapeHtml(displayName(r.user_id).charAt(0).toUpperCase())}</div><span>${escapeHtml(isMine?'Você':displayName(r.user_id))}</span><span class="feed-time">${dateLabel(r.created_at)}</span></div><div class="feed-place" data-open-place="${escapeHtml(r.restaurant_id)}">${emojiFor(place?.name||'')} ${escapeHtml(place?.name||'Restaurante')}</div><div class="feed-address">${escapeHtml(place?.address||'')}</div><div class="feed-rating">★ ${Number(r.rating).toFixed(1).replace('.',',')} <small>/ 5,0</small></div>${r.note?`<p class="feed-note">${escapeHtml(r.note)}</p>`:''}${isMine?`<div class="feed-actions"><button class="text-action" data-edit-review="${escapeHtml(r.restaurant_id)}">Editar</button><button class="text-action danger" data-delete-review="${escapeHtml(r.id)}">Excluir</button></div>`:''}</article>`}).join('');
+ return sortByDate(items).map(r=>{const place=getRestaurant(r.restaurant_id),isMine=r.user_id===currentUserId();return `<article class="feed-card"><div class="feed-user">${avatarHtml(isMine?profile:profiles[r.user_id],displayName(r.user_id))}<span>${escapeHtml(isMine?'Você':displayName(r.user_id))}</span><span class="feed-time">${dateLabel(r.created_at)}</span></div><div class="feed-place" data-open-place="${escapeHtml(r.restaurant_id)}">${emojiFor(place?.name||'')} ${escapeHtml(place?.name||'Restaurante')}</div><div class="feed-address">${escapeHtml(place?.address||'')}</div><div class="feed-rating">★ ${Number(r.rating).toFixed(1).replace('.',',')} <small>/ 5,0</small></div>${reviewDetails(r)?`<div class="review-details">${reviewDetails(r)}</div>`:r.note?`<p class="feed-note">${escapeHtml(r.note)}</p>`:''}${isMine?`<div class="feed-actions"><button class="text-action" data-edit-review="${escapeHtml(r.restaurant_id)}">Editar</button><button class="text-action danger" data-delete-review="${escapeHtml(r.id)}">Excluir</button></div>`:''}</article>`}).join('');
 }
 function renderFeed(){const list=feedFilter==='mine'?mineReviews():feedFilter==='friends'?reviews.filter(r=>r.user_id!==currentUserId()):reviews;$('#feedList').innerHTML=feedMarkup(list);}
 function renderProfile(){
  const name=profile?.display_name||demoData.name||'Visitante',handle=profile?.username||(live?'usuário':'visitante');
- $('#profileName').textContent=name;$('#profileHandle').textContent='@'+handle;$('#profileAvatar').textContent=name.charAt(0).toUpperCase();
+ $('#profileName').textContent=name;$('#profileHandle').textContent='@'+handle;$('#profileAvatar').innerHTML=profile?.avatar_url?`<img src="${escapeHtml(profile.avatar_url)}" alt="Sua foto de perfil" referrerpolicy="no-referrer">`:escapeHtml(name.charAt(0).toUpperCase());
  $('#myReviews').innerHTML=feedMarkup(mineReviews());
- $('#authArea').innerHTML=live?(user?`<div class="mode-box"><strong>Você está conectado ✓</strong><p>Suas avaliações ficam salvas na nuvem e aparecem para amigos aceitos.</p><button id="logoutButton" class="secondary-btn">Sair da conta</button></div>`:`<div class="mode-box"><strong>Sua conta</strong><p>Crie sua conta para salvar avaliações, buscar amigos e sincronizar o celular.</p><button id="loginButton">Entrar ou criar conta</button></div>`):`<div class="mode-box"><strong>✳ Versão de demonstração</strong><p>Você pode avaliar e explorar agora. Os dados de teste ficam apenas neste navegador. Para compartilhar avaliações de verdade, configure o Supabase conforme o README.</p><button id="editDemoName">Alterar meu nome</button></div>`;
+ $('#authArea').innerHTML=live?(user?`<div class="mode-box"><strong>Você está conectado ✓</strong><p>Suas avaliações ficam salvas na nuvem e aparecem para amigos aceitos.</p><button id="changePhotoButton" class="secondary-btn" type="button">Alterar foto do perfil</button><button id="logoutButton" class="secondary-btn" type="button">Sair da conta</button></div>`:`<div class="mode-box"><strong>Sua conta</strong><p>Crie sua conta para salvar avaliações, buscar amigos e sincronizar o celular.</p><button id="loginButton">Entrar ou criar conta</button></div>`):`<div class="mode-box"><strong>✳ Versão de demonstração</strong><p>Você pode avaliar e explorar agora. Os dados de teste ficam apenas neste navegador. Para compartilhar avaliações de verdade, configure o Supabase conforme o README.</p><button id="editDemoName">Alterar meu nome</button></div>`;
  if(!live){$('#friendList').innerHTML=`<div class="friend-row"><div class="tiny-avatar friend">L</div><div><strong>Lia (exemplo)</strong><small>@lia_demo</small></div><span class="status-label">Demonstração</span></div>`;return}
- const rows=friends.map(f=>{const otherId=f.sender_id===user.id?f.recipient_id:f.sender_id,other=profiles[otherId]||{},waiting=f.status==='pending',incoming=f.recipient_id===user.id;return `<div class="friend-row"><div class="tiny-avatar">${escapeHtml((other.display_name||'?')[0])}</div><div><strong>${escapeHtml(other.display_name||'Usuário')}</strong><small>@${escapeHtml(other.username||'')}</small></div>${waiting&&incoming?`<button data-accept="${f.id}">Aceitar</button>`:`<span class="status-label">${waiting?'Convite enviado':'Amigos ✓'}</span>`}</div>`}).join('');
+ const rows=friends.map(f=>{const otherId=f.sender_id===user.id?f.recipient_id:f.sender_id,other=profiles[otherId]||{},waiting=f.status==='pending',incoming=f.recipient_id===user.id;return `<div class="friend-row">${avatarHtml(other,other.display_name||'?')}<div><strong>${escapeHtml(other.display_name||'Usuário')}</strong><small>@${escapeHtml(other.username||'')}</small></div>${waiting&&incoming?`<button data-accept="${f.id}">Aceitar</button>`:`<span class="status-label">${waiting?'Convite enviado':'Amigos ✓'}</span>`}</div>`}).join('');
  $('#friendList').innerHTML=rows||`<div class="empty-state"><p>Encontre alguém pelo @usuário e envie um convite.</p></div>`;
 }
 function renderMap(){
@@ -162,7 +165,7 @@ function fitAll(){
  else toast('Nenhum restaurante cadastrado ainda.');
 }
 function switchPage(page){activePage=page;document.body.dataset.page=page;$('#sectionTitle').textContent=({explore:'Restaurantes',feed:'Avaliações',profile:'Perfil'})[page];$('#headerSubtitle').textContent=({explore:'Seus lugares',feed:'Notas de vocês',profile:'Conta e amigos'})[page];document.querySelectorAll('.panel-page').forEach(el=>el.classList.toggle('active',el.id==='page-'+page));document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.page===page));if(page==='explore')requestAnimationFrame(()=>setTimeout(mapResize,120))}
-function openPlace(id){const r=getRestaurant(id);if(!r)return;const mine=reviewByMe(id);const others=reviews.filter(x=>x.restaurant_id===id&&x.user_id!==currentUserId());modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> RESTAURANTE NO MAPA</div><h2>${emojiFor(r.name)} ${escapeHtml(r.name)}</h2><p>${escapeHtml(r.address||'Localização cadastrada')}</p><div class="modal-location">📍 <strong>Local no mapa</strong> · ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}</div>${mine?`<div class="feed-card" style="margin-top:15px"><strong>Sua avaliação · ★ ${Number(mine.rating).toFixed(1).replace('.',',')}</strong><p style="margin:9px 0 0">${escapeHtml(mine.note||'Sem comentário')}</p></div>`:''}${others.length?`<div style="margin-top:16px"><div class="mini-eyebrow" style="margin-bottom:10px">AMIGOS QUE CONHECEM</div>${feedMarkup(others)}</div>`:''}${mine?`<div class="feed-actions"><button class="text-action danger" data-delete-review="${escapeHtml(mine.id)}">Excluir avaliação</button></div>`:''}${(!live||r.created_by===user?.id)?`<div class="place-management"><button class="text-action" data-edit-place="${escapeHtml(r.id)}">Editar restaurante</button><button class="text-action danger" data-delete-place="${escapeHtml(r.id)}">Excluir restaurante</button></div>`:''}<div class="form-actions"><button class="btn-secondary" id="showOnMap">Ver no mapa</button><button class="btn-primary" id="reviewSelected">${mine?'Editar minha nota':'Avaliar este lugar'}</button></div>`);$('#reviewSelected').addEventListener('click',()=>openReview(r));$('#showOnMap').addEventListener('click',()=>{closeModal();switchPage('explore');goToPoint(r.lat,r.lng,16)})}
+function openPlace(id){const r=getRestaurant(id);if(!r)return;const mine=reviewByMe(id);const others=reviews.filter(x=>x.restaurant_id===id&&x.user_id!==currentUserId());modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> RESTAURANTE NO MAPA</div><h2>${emojiFor(r.name)} ${escapeHtml(r.name)}</h2><p>${escapeHtml(r.address||'Localização cadastrada')}</p><div class="modal-location">📍 <strong>Local no mapa</strong> · ${Number(r.lat).toFixed(4)}, ${Number(r.lng).toFixed(4)}</div>${mine?`<div class="feed-card" style="margin-top:15px"><strong>Sua avaliação · ★ ${Number(mine.rating).toFixed(1).replace('.',',')}</strong>${reviewDetails(mine)?`<div class="review-details">${reviewDetails(mine)}</div>`:`<p style="margin:9px 0 0">${escapeHtml(mine.note||'Sem comentário')}</p>`}</div>`:''}${others.length?`<div style="margin-top:16px"><div class="mini-eyebrow" style="margin-bottom:10px">AMIGOS QUE CONHECEM</div>${feedMarkup(others)}</div>`:''}${mine?`<div class="feed-actions"><button class="text-action danger" data-delete-review="${escapeHtml(mine.id)}">Excluir avaliação</button></div>`:''}${(!live||r.created_by===user?.id)?`<div class="place-management"><button class="text-action" data-edit-place="${escapeHtml(r.id)}">Editar restaurante</button><button class="text-action danger" data-delete-place="${escapeHtml(r.id)}">Excluir restaurante</button></div>`:''}<div class="form-actions"><button class="btn-secondary" id="showOnMap">Ver no mapa</button><button class="btn-primary" id="reviewSelected">${mine?'Editar minha nota':'Avaliar este lugar'}</button></div>`);$('#reviewSelected').addEventListener('click',()=>openReview(r));$('#showOnMap').addEventListener('click',()=>{closeModal();switchPage('explore');goToPoint(r.lat,r.lng,16)})}
 
 function editPlace(id){
  const r=getRestaurant(id);if(!r || (live&&r.created_by!==user?.id))return;
@@ -192,8 +195,39 @@ async function geocodeAddress(query){
 function openNewPlace(point=null){
  if(live&&!user){openAuth();return}
  let chosen=point;
- modal(`<h2>Adicionar restaurante</h2><form id="newPlaceForm"><div class="field"><label>Nome</label><input required id="newPlaceName" class="form-input" maxlength="100" placeholder="Nome do restaurante"/></div><div class="field"><label>Endereço completo</label><input id="newPlaceAddress" class="form-input" maxlength="180" placeholder="Rua, número, cidade"/></div><button type="button" class="btn-secondary" id="verifyAddress" style="border:0;border-radius:10px;padding:11px;width:100%">Buscar endereço no mapa</button><div id="geocodeOptions"></div><div class="modal-location" id="selectedCoordinates">${point?'Ponto selecionado no mapa. Você pode manter ou pesquisar um endereço.':'Encontre e selecione o endereço antes de continuar.'}</div><div class="form-actions"><button type="button" class="btn-secondary" id="cancelNew">Cancelar</button><button class="btn-primary" type="submit">Continuar</button></div></form>`);
+ modal(`<h2>Adicionar restaurante</h2><form id="newPlaceForm"><div class="field"><label for="newPlaceName">Nome do restaurante</label><input required id="newPlaceName" class="form-input" maxlength="100" placeholder="Comece a digitar para buscar" autocomplete="off" aria-controls="placeSuggestions"/><div id="placeSuggestions" class="place-suggestions" aria-live="polite"></div><small class="helper-text">Selecione uma sugestão para preencher o endereço e marcar no mapa, ou informe o endereço manualmente.</small></div><div class="field"><label>Endereço completo</label><input id="newPlaceAddress" class="form-input" maxlength="180" placeholder="Rua, número, cidade"/></div><button type="button" class="btn-secondary" id="verifyAddress" style="border:0;border-radius:10px;padding:11px;width:100%">Buscar endereço no mapa</button><div id="geocodeOptions"></div><div class="modal-location" id="selectedCoordinates">${point?'Ponto selecionado no mapa. Você pode manter ou pesquisar um endereço.':'Encontre e selecione o endereço antes de continuar.'}</div><div class="form-actions"><button type="button" class="btn-secondary" id="cancelNew">Cancelar</button><button class="btn-primary" type="submit">Continuar</button></div></form>`);
  $('#cancelNew').onclick=closeModal;
+ let nameSearchTimer, searchController, searchSequence=0;
+ $('#newPlaceName').addEventListener('input',()=>{
+  clearTimeout(nameSearchTimer);searchController?.abort();const seq=++searchSequence;
+  const q=$('#newPlaceName').value.trim(), target=$('#placeSuggestions');
+  if(q.length<3){target.innerHTML='';return}
+  target.innerHTML='<small class="helper-text">Buscando restaurantes…</small>';
+  nameSearchTimer=setTimeout(async()=>{
+   searchController=new AbortController();
+   const params=new URLSearchParams({q,limit:'6',lang:'pt'});
+   const pos=userLocation || (map? {lat:map.getCenter().lat,lng:map.getCenter().lng}:null);
+   if(pos){params.set('lat',pos.lat);params.set('lon',pos.lng)}
+   try{
+    const response=await fetch('https://photon.komoot.io/api/?'+params,{signal:searchController.signal});
+    if(!response.ok)throw new Error('Busca indisponível');
+    const payload=await response.json();if(seq!==searchSequence)return;
+    const results=(payload.features||[]).filter(f=>f.geometry?.coordinates?.length===2 && f.properties?.name);
+    target.innerHTML=results.length?results.map((f,i)=>{
+     const v=f.properties;const address=[v.street&&[v.street,v.housenumber].filter(Boolean).join(', '),v.district||v.city,v.state,v.country].filter(Boolean).join(' · ');
+     return `<button type="button" class="search-result suggestion" data-suggestion="${i}"><strong>${escapeHtml(v.name)}</strong><small>${escapeHtml(address||'Local identificado no mapa')}</small></button>`
+    }).join(''):'<small class="helper-text">Não encontrado. Você pode preencher o endereço manualmente.</small>';
+    target.querySelectorAll('[data-suggestion]').forEach(btn=>btn.onclick=()=>{
+     const f=results[Number(btn.dataset.suggestion)],v=f.properties;
+     chosen={lat:Number(f.geometry.coordinates[1]),lng:Number(f.geometry.coordinates[0])};
+     $('#newPlaceName').value=v.name.slice(0,100);
+     $('#newPlaceAddress').value=[v.street&&[v.street,v.housenumber].filter(Boolean).join(', '),v.district||v.city,v.state,v.country].filter(Boolean).join(', ').slice(0,180) || v.name;
+     $('#selectedCoordinates').textContent='✓ Restaurante localizado. Confira o endereço antes de salvar.';
+     target.innerHTML='';$('#geocodeOptions').innerHTML='';
+    });
+   }catch(err){if(err.name!=='AbortError'&&seq===searchSequence)target.innerHTML='<small class="helper-text">Busca indisponível. Informe o endereço manualmente.</small>'}
+  },700)
+ });
  $('#newPlaceAddress').addEventListener('input',()=>{chosen=null;$('#selectedCoordinates').textContent='Selecione um resultado da busca para confirmar a localização.'});
  $('#verifyAddress').onclick=async()=>{
   const query=$('#newPlaceAddress').value.trim();if(query.length<5){toast('Digite um endereço mais completo.');return}
@@ -204,15 +238,42 @@ function openNewPlace(point=null){
  };
  $('#newPlaceForm').onsubmit=e=>{e.preventDefault();if(!chosen){toast('Confirme o endereço para posicionar o restaurante corretamente.');return}const name=$('#newPlaceName').value.trim(),address=$('#newPlaceAddress').value.trim();closeModal();goToPoint(chosen.lat,chosen.lng,16);openReview({id:null,name,address,lat:chosen.lat,lng:chosen.lng})};
 }
-function openReview(r){if(live&&!user){openAuth();return}const old=r.id?reviewByMe(r.id):null;let rating=old?Number(old.rating):0;modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> AVALIAÇÃO</div><h2>Como foi no ${escapeHtml(r.name)}?</h2><p></p><form id="reviewForm"><div class="field"><label>SUA NOTA</label><div class="rating-picker" id="ratingPicker">${[1,2,3,4,5].map(v=>`<button type="button" class="rating-star ${v<=Math.ceil(rating)?'selected':''}" data-rating="${v}" aria-label="${v} estrelas">★</button>`).join('')}<span class="rating-value" id="ratingValue">${rating?rating.toFixed(1).replace('.',',')+' / 5,0':'Escolha uma nota'}</span></div><small class="helper-text">Toque em uma estrela para a nota inteira; toque novamente para meia estrela.</small></div><div class="field"><label for="reviewNote">SUA REVIEW (OPCIONAL)</label><textarea id="reviewNote" class="form-textarea" maxlength="500" placeholder="O que você pediu? O que valeu a pena? Voltaria?">${escapeHtml(old?.note||'')}</textarea></div><div class="form-actions"><button type="button" class="btn-secondary" id="cancelReview">Cancelar</button><button class="btn-primary" type="submit">Salvar avaliação</button></div></form>`);
- $('#cancelReview').addEventListener('click',closeModal);
+function openReview(r){
+ if(live&&!user){openAuth();return}
+ const old=r.id?reviewByMe(r.id):null;let rating=old?Number(old.rating):0;
+ const ordered=old?.ordered_item||'',highlights=old?.highlights||(old?.note||''),returnAgain=old?.would_return||'',bill=old?.bill_amount??'';
+ modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> AVALIAÇÃO</div><h2>Como foi no ${escapeHtml(r.name)}?</h2>
+ <form id="reviewForm"><div class="field"><label>Sua nota</label><div class="rating-picker" id="ratingPicker">${[1,2,3,4,5].map(v=>`<button type="button" class="rating-star ${v<=Math.ceil(rating)?'selected':''}" data-rating="${v}" aria-label="${v} estrelas">★</button>`).join('')}<span class="rating-value" id="ratingValue">${rating?rating.toFixed(1).replace('.',',')+' / 5,0':'Escolha uma nota'}</span></div><small class="helper-text">Toque novamente para meia estrela.</small></div>
+ <div class="field"><label for="reviewOrdered">O que você pediu? <span class="optional">opcional</span></label><textarea id="reviewOrdered" class="form-textarea compact-textarea" maxlength="300" placeholder="Pratos, bebidas, sobremesas…">${escapeHtml(ordered)}</textarea></div>
+ <div class="field"><label for="reviewHighlights">O que valeu a pena? <span class="optional">opcional</span></label><textarea id="reviewHighlights" class="form-textarea compact-textarea" maxlength="500" placeholder="O que mais gostou?">${escapeHtml(highlights)}</textarea></div>
+ <div class="field"><label for="reviewReturn">Voltaria? <span class="optional">opcional</span></label><select id="reviewReturn" class="form-input"><option value="">Não informado</option><option value="Sim" ${returnAgain==='Sim'?'selected':''}>Sim</option><option value="Talvez" ${returnAgain==='Talvez'?'selected':''}>Talvez</option><option value="Não" ${returnAgain==='Não'?'selected':''}>Não</option></select></div>
+ <div class="field"><label for="reviewBill">Valor total da conta (R$) <span class="optional">opcional</span></label><input id="reviewBill" class="form-input" type="text" inputmode="decimal" maxlength="12" placeholder="Ex.: 120,50" value="${bill===''?'':escapeHtml(Number(bill).toFixed(2).replace('.',','))}"/><small class="helper-text">Valor total pago, não por pessoa.</small></div>
+ <div class="form-actions"><button type="button" class="btn-secondary" id="cancelReview">Cancelar</button><button class="btn-primary" type="submit">Salvar avaliação</button></div></form>`);
+ $('#cancelReview').onclick=closeModal;
  $('#ratingPicker').addEventListener('click',e=>{const b=e.target.closest('[data-rating]');if(!b)return;const v=Number(b.dataset.rating);rating=(rating===v)?v-.5:v;document.querySelectorAll('.rating-star').forEach((star,i)=>star.classList.toggle('selected',i<Math.ceil(rating)));$('#ratingValue').textContent=rating.toFixed(1).replace('.',',')+' / 5,0'});
- $('#reviewForm').addEventListener('submit',async e=>{e.preventDefault();if(!rating){toast('Escolha uma nota de 0,5 a 5 estrelas.');return}const button=e.target.querySelector('[type=submit]');button.disabled=true;try{await saveReview(r,rating,$('#reviewNote').value.trim());closeModal();toast('Avaliação salva e restaurante marcado no mapa.');render()}catch(error){console.error(error);toast('Não foi possível salvar: '+(error.message||error))}finally{button.disabled=false}})
+ $('#reviewForm').onsubmit=async e=>{e.preventDefault();if(!rating){toast('Escolha uma nota de 0,5 a 5 estrelas.');return}
+  const raw=$('#reviewBill').value.trim();const normalized=raw.replace(/\s|R\$/gi,'').replace(/\./g,'').replace(',','.');const amount=raw?Number(normalized):null;
+  if(raw&&(!Number.isFinite(amount)||amount<0||amount>9999999.99)){toast('Informe um valor válido em reais.');return}
+  const details={ordered_item:$('#reviewOrdered').value.trim(),highlights:$('#reviewHighlights').value.trim(),would_return:$('#reviewReturn').value,bill_amount:amount};
+  const button=e.target.querySelector('[type=submit]');button.disabled=true;
+  try{await saveReview(r,rating,details);closeModal();toast('Avaliação salva!');render()}catch(error){console.error(error);toast('Não foi possível salvar: '+(error.message||error))}finally{button.disabled=false}
+ };
 }
-async function saveReview(r,rating,note){
+async function saveReview(r,rating,details){
  let rid=r.id;
- if(live){if(!user)throw new Error('Faça login para continuar.');if(!rid){const {data,error}=await supabase.from('restaurants').insert({name:r.name,address:r.address||'',lat:r.lat,lng:r.lng,created_by:user.id}).select('id').single();if(error)throw error;rid=data.id}const {error}=await supabase.from('reviews').upsert({user_id:user.id,restaurant_id:rid,rating,note},{onConflict:'user_id,restaurant_id'});if(error)throw error;await loadLiveData()}
- else{if(!rid){rid=randomId();demoData.restaurants.push({...r,id:rid,created_at:new Date().toISOString()})}const prev=demoData.reviews.find(v=>v.user_id==='demo-me'&&v.restaurant_id===rid);if(prev){prev.rating=rating;prev.note=note;prev.created_at=new Date().toISOString()}else demoData.reviews.push({id:randomId(),user_id:'demo-me',restaurant_id:rid,rating,note,created_at:new Date().toISOString()});persistDemo();loadDemo()}
+ // O resumo legível é mantido para compatibilidade com versões anteriores.
+ const note=[details.ordered_item&&`Pedi: ${details.ordered_item}`,details.highlights&&`Destaques: ${details.highlights}`,details.would_return&&`Voltaria: ${details.would_return}`,details.bill_amount!=null&&`Conta: ${moneyBR(details.bill_amount)}`].filter(Boolean).join(' · ').slice(0,500);
+ if(live){
+  if(!user)throw new Error('Faça login para continuar.');
+  if(!rid){const {data,error}=await supabase.from('restaurants').insert({name:r.name,address:r.address||'',lat:r.lat,lng:r.lng,created_by:user.id}).select('id').single();if(error)throw error;rid=data.id}
+  const {error}=await supabase.from('reviews').upsert({user_id:user.id,restaurant_id:rid,rating,note,...details},{onConflict:'user_id,restaurant_id'});if(error)throw error;await loadLiveData();
+ }else{
+  if(!rid){rid=randomId();demoData.restaurants.push({...r,id:rid,created_at:new Date().toISOString()})}
+  const prev=demoData.reviews.find(v=>v.user_id==='demo-me'&&v.restaurant_id===rid);
+  if(prev)Object.assign(prev,{rating,note,...details,created_at:new Date().toISOString()});
+  else demoData.reviews.push({id:randomId(),user_id:'demo-me',restaurant_id:rid,rating,note,...details,created_at:new Date().toISOString()});
+  persistDemo();loadDemo();
+ }
 }
 async function deleteReview(id){
  const review=reviews.find(r=>String(r.id)===String(id));if(!review||review.user_id!==currentUserId())return;
@@ -225,20 +286,74 @@ async function deleteReview(id){
 function loadDemo(){restaurants=[...demoData.restaurants];reviews=[...demoData.reviews];friends=[{status:'accepted',sender_id:'demo-me',recipient_id:'demo-friend'}];profiles={'demo-friend':{display_name:'Lia',username:'lia_demo'}};profile={display_name:demoData.name,username:'visitante'};render()}
 async function initializeBackend(){
  if(!SUPABASE_URL||!SUPABASE_ANON_KEY){$('#appStatus').textContent='Modo demonstração • dados locais';loadDemo();return}
- try{const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);live=true;$('#appStatus').textContent='Conectado ao Supabase';const {data:{session}}=await supabase.auth.getSession();user=session?.user||null;supabase.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;setTimeout(()=>loadLiveData().catch(err=>toast(err.message)),0)});await loadLiveData();if(!user)openAuth()}catch(err){console.error(err);live=false;toast('Falha de conexão. Abrindo demonstração.');loadDemo()}
+ try{const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');supabase=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);live=true;$('#appStatus').textContent='Conectado ao Supabase';supabase.auth.onAuthStateChange((event,session)=>{user=session?.user||null;setTimeout(()=>{loadLiveData().catch(err=>toast(err.message));if(event==='PASSWORD_RECOVERY')openSetPassword()},0)});const {data:{session}}=await supabase.auth.getSession();user=session?.user||null;await loadLiveData();if(!user)openAuth()}catch(err){console.error(err);live=false;toast('Falha de conexão. Abrindo demonstração.');loadDemo()}
 }
 async function loadLiveData(){
  if(!user){restaurants=[];reviews=[];friends=[];profiles={};profile=null;render();return}
  const results=await Promise.all([supabase.from('profiles').select('*').eq('id',user.id).single(),supabase.from('friendships').select('*').or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`),supabase.from('reviews').select('*').order('created_at',{ascending:false}),supabase.from('restaurants').select('*')]);
  for(const r of results){if(r.error && r.error.code!=='PGRST116')throw r.error}
  profile=results[0].data;friends=results[1].data||[];reviews=results[2].data||[];restaurants=results[3].data||[];
- const ids=[...new Set(friends.map(f=>f.sender_id===user.id?f.recipient_id:f.sender_id).concat(reviews.map(r=>r.user_id)).filter(id=>id!==user.id))];profiles={};if(ids.length){const {data,error}=await supabase.from('profiles').select('id,username,display_name').in('id',ids);if(error)throw error;for(const p of data||[])profiles[p.id]=p}
+ const ids=[...new Set(friends.map(f=>f.sender_id===user.id?f.recipient_id:f.sender_id).concat(reviews.map(r=>r.user_id)).filter(id=>id!==user.id))];profiles={};if(ids.length){const {data,error}=await supabase.from('profiles').select('id,username,display_name,avatar_url').in('id',ids);if(error)throw error;for(const p of data||[])profiles[p.id]=p}
  render();
 }
-function openAuth(){if(!live)return;let mode='login';const paint=()=>{modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> ACESSO</div><h2>Entrar ou criar conta</h2><p>Salve suas avaliações e veja as de amigos.</p><div class="auth-toggle"><button id="tabLogin" class="${mode==='login'?'active':''}">Entrar</button><button id="tabSignup" class="${mode==='signup'?'active':''}">Criar conta</button></div><form id="authForm">${mode==='signup'?`<div class="field"><label>NOME EXIBIDO</label><input required class="form-input" id="authName" maxlength="50" placeholder="Seu nome"/></div><div class="field"><label>NOME DE USUÁRIO (SEM @)</label><input required pattern="[a-zA-Z0-9_]{3,30}" class="form-input" id="authUsername" maxlength="30" placeholder="meunome"/></div>`:''}<div class="field"><label>E-MAIL</label><input required type="email" class="form-input" id="authEmail" placeholder="voce@email.com"/></div><div class="field"><label>SENHA</label><input required type="password" minlength="6" class="form-input" id="authPassword" placeholder="Mínimo de 6 caracteres"/></div><div class="form-actions"><button class="btn-primary" type="submit">${mode==='login'?'Entrar':'Criar minha conta'} →</button></div></form><p class="helper-text">${mode==='signup'?'Pode ser necessário confirmar o e-mail antes de entrar.':'Suas informações são protegidas pelo Supabase Auth.'}</p>`);$('#tabLogin').onclick=()=>{mode='login';paint()};$('#tabSignup').onclick=()=>{mode='signup';paint()};$('#authForm').onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector('button[type=submit]');btn.disabled=true;const email=$('#authEmail').value.trim(),password=$('#authPassword').value;try{if(mode==='signup'){const username=$('#authUsername').value.trim().toLowerCase(),displayName=$('#authName').value.trim();const {data,error}=await supabase.auth.signUp({email,password,options:{data:{username,display_name:displayName}}});if(error)throw error;closeModal();toast(data.session?'Conta criada com sucesso!':'Conta criada! Confira seu e-mail para confirmar o cadastro.')}else{const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;closeModal();toast('Login realizado.')}}catch(err){toast(err.message||'Não foi possível entrar.')}finally{btn.disabled=false}}};paint()}
+function openAuth(){
+ if(!live)return;let mode='login';
+ const paint=()=>{
+  modal(`<div class="eyebrow"><span class="eyebrow-dot"></span> ACESSO</div><h2>${mode==='reset'?'Recuperar senha':'Entrar ou criar conta'}</h2>
+  ${mode==='reset'?'<p>Enviaremos um link para você definir uma nova senha.</p>':'<p>Suas avaliações ficam salvas na sua conta.</p>'}
+  ${mode!=='reset'?`<div class="auth-toggle"><button id="tabLogin" class="${mode==='login'?'active':''}">Entrar</button><button id="tabSignup" class="${mode==='signup'?'active':''}">Criar conta</button></div>`:''}
+  <form id="authForm">${mode==='signup'?`<div class="field"><label>Nome exibido</label><input required class="form-input" id="authName" maxlength="50"/></div><div class="field"><label>Nome de usuário</label><input required pattern="[a-zA-Z0-9_]{3,30}" class="form-input" id="authUsername" maxlength="30"/></div>`:''}
+  <div class="field"><label>E-mail</label><input required type="email" class="form-input" id="authEmail" placeholder="voce@email.com" autocomplete="email"/></div>
+  ${mode!=='reset'?`<div class="field"><label>Senha</label><input required type="password" minlength="6" class="form-input" id="authPassword" autocomplete="${mode==='login'?'current-password':'new-password'}"/></div>`:''}
+  <div class="form-actions"><button class="btn-primary" type="submit">${mode==='reset'?'Enviar link':'Continuar'}</button></div></form>
+  <div class="auth-links">${mode==='login'?'<button type="button" id="forgotPassword">Esqueci minha senha</button>':mode==='reset'?'<button type="button" id="backToLogin">Voltar ao login</button>':'<small class="helper-text">Talvez seja necessário confirmar o e-mail.</small>'}</div>`);
+  if(mode!=='reset'){$('#tabLogin').onclick=()=>{mode='login';paint()};$('#tabSignup').onclick=()=>{mode='signup';paint()}}
+  if(mode==='login')$('#forgotPassword').onclick=()=>{mode='reset';paint()};
+  if(mode==='reset')$('#backToLogin').onclick=()=>{mode='login';paint()};
+  $('#authForm').onsubmit=async e=>{
+   e.preventDefault();const btn=e.target.querySelector('[type=submit]');btn.disabled=true;
+   const email=$('#authEmail').value.trim();const password=$('#authPassword')?.value;
+   try{
+    if(mode==='reset'){
+     const redirectTo=location.origin+location.pathname;
+     const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;
+     closeModal();toast('Se o e-mail estiver cadastrado, você receberá um link de recuperação.');
+    }else if(mode==='signup'){
+     const username=$('#authUsername').value.trim().toLowerCase(),displayName=$('#authName').value.trim();
+     const {data,error}=await supabase.auth.signUp({email,password,options:{data:{username,display_name:displayName}}});if(error)throw error;
+     closeModal();toast(data.session?'Conta criada!':'Confira o e-mail para confirmar seu cadastro.');
+    }else{
+     const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;closeModal();toast('Login realizado.');
+    }
+   }catch(err){toast(err.message||'Não foi possível continuar.')}finally{btn.disabled=false}
+  };
+ };paint();
+}
+function openSetPassword(){
+ modal(`<h2>Definir nova senha</h2><p>Escolha uma senha nova para sua conta.</p><form id="setPasswordForm"><div class="field"><label for="newPassword">Nova senha</label><input class="form-input" id="newPassword" type="password" autocomplete="new-password" minlength="8" required/></div><div class="field"><label for="repeatPassword">Confirme a nova senha</label><input class="form-input" id="repeatPassword" type="password" autocomplete="new-password" minlength="8" required/></div><div class="form-actions"><button class="btn-primary" type="submit">Salvar nova senha</button></div></form>`);
+ $('#setPasswordForm').onsubmit=async e=>{e.preventDefault();const pw=$('#newPassword').value;if(pw!==$('#repeatPassword').value){toast('As senhas não coincidem.');return}const btn=e.target.querySelector('[type=submit]');btn.disabled=true;try{const {error}=await supabase.auth.updateUser({password:pw});if(error)throw error;history.replaceState(null,'',location.pathname);closeModal();toast('Senha atualizada. Você já pode entrar com a nova senha.')}catch(err){toast(err.message)}finally{btn.disabled=false}};
+}
+async function uploadAvatar(file){
+ if(!live||!user){toast('Entre na conta para adicionar uma foto.');return}
+ if(!file?.type?.startsWith('image/')){toast('Selecione uma imagem.');return}
+ if(file.size>12*1024*1024){toast('Escolha uma imagem de até 12 MB.');return}
+ try{
+  toast('Preparando sua foto…');
+  const bitmap=await createImageBitmap(file);const scale=Math.min(1,640/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.85));if(!blob)throw new Error('Formato de imagem não suportado pelo navegador.');
+  const path=`${user.id}/avatar-${Date.now()}.jpg`;
+  const {error:uploadError}=await supabase.storage.from('avatars').upload(path,blob,{contentType:'image/jpeg',upsert:false});if(uploadError)throw uploadError;
+  const {data}=supabase.storage.from('avatars').getPublicUrl(path);
+  const {error:updateError}=await supabase.from('profiles').update({avatar_url:data.publicUrl}).eq('id',user.id);if(updateError)throw updateError;
+  await loadLiveData();toast('Foto de perfil atualizada!');
+ }catch(err){console.error(err);toast('Erro ao enviar foto: '+(err.message||err))}
+}
 async function addFriend(){if(!live){toast('Amizades reais precisam do Supabase configurado.');return}if(!user){openAuth();return}const username=$('#friendInput').value.trim().replace(/^@/,'').toLowerCase();if(!username){toast('Digite um nome de usuário.');return}if(username===profile?.username){toast('Você já está no seu próprio mapa!');return}try{const {data:person,error}=await supabase.from('profiles').select('id,username,display_name').eq('username',username).maybeSingle();if(error)throw error;if(!person){toast('Usuário não encontrado.');return}if(friends.some(f=>[f.sender_id,f.recipient_id].includes(person.id))){toast('Vocês já têm uma solicitação ou amizade.');return}const {error:err}=await supabase.from('friendships').insert({sender_id:user.id,recipient_id:person.id});if(err)throw err;$('#friendInput').value='';await loadLiveData();toast('Pedido de amizade enviado!')}catch(err){toast(err.message||'Não foi possível enviar o convite.')}}
 async function acceptFriend(id){try{const {error}=await supabase.from('friendships').update({status:'accepted'}).eq('id',id).eq('recipient_id',user.id);if(error)throw error;await loadLiveData();toast('Agora vocês são amigos!')}catch(err){toast(err.message)}}
 initializeMap();initializeBackend();
+const avatarInput=document.createElement('input');avatarInput.type='file';avatarInput.id='avatarFileInput';avatarInput.accept='image/*';avatarInput.hidden=true;avatarInput.addEventListener('change',e=>{if(e.target.files?.[0])uploadAvatar(e.target.files[0]);e.target.value=''});document.body.append(avatarInput);
 document.addEventListener('click',e=>{
  const delPlace=e.target.closest('[data-delete-place]');if(delPlace){deletePlace(delPlace.dataset.deletePlace);return}
  const editPlaceBtn=e.target.closest('[data-edit-place]');if(editPlaceBtn){editPlace(editPlaceBtn.dataset.editPlace);return}
@@ -247,6 +362,7 @@ document.addEventListener('click',e=>{
  const link=e.target.closest('[data-open-place]');if(link){e.preventDefault();openPlace(link.dataset.openPlace);return}
  const accepted=e.target.closest('[data-accept]');if(accepted){acceptFriend(accepted.dataset.accept);return}
  if(e.target.closest('#loginButton'))openAuth();
+ if(e.target.closest('#changePhotoButton'))$('#avatarFileInput').click();
  if(e.target.closest('#logoutButton'))supabase.auth.signOut().then(()=>{toast('Você saiu da conta.');switchPage('explore')});
  if(e.target.closest('#editDemoName')){const name=prompt('Como você gostaria de aparecer?',demoData.name);if(name?.trim()){demoData.name=name.trim().slice(0,50);persistDemo();loadDemo()}}
 });
